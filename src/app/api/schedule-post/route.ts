@@ -41,10 +41,10 @@ export async function POST(req: NextRequest) {
           console.log('LinkedIn post — API connected, scheduling...');
         }
         break;
-      case 'twitter':
-        if (process.env.TWITTER_API_KEY) {
-          // TODO: Post via Twitter API v2
-          console.log('Twitter post — API connected, scheduling...');
+      case 'tiktok':
+        if (process.env.TIKTOK_ACCESS_TOKEN) {
+          // TODO: Post via TikTok for Business API
+          console.log('TikTok post — API connected, scheduling...');
         }
         break;
     }

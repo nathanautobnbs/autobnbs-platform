@@ -11,7 +11,6 @@ const initialPlatformConnections: PlatformConnection[] = [
   { platform: 'instagram', connected: false },
   { platform: 'facebook', connected: false },
   { platform: 'linkedin', connected: false },
-  { platform: 'twitter', connected: false },
   { platform: 'tiktok', connected: false },
   { platform: 'buffer', connected: false },
 ];

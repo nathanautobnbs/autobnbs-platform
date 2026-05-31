@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import {
   Link2, Check, ExternalLink, Eye, EyeOff, Save, AlertCircle,
-  Instagram, Facebook, Linkedin, Twitter, Zap,
+  Instagram, Facebook, Linkedin, Zap,
 } from 'lucide-react';
 import { useAppState, useAppDispatch } from '@/lib/store';
 import { Platform } from '@/types';
@@ -51,16 +51,6 @@ const platformInstructions: Record<Platform, { instructions: string; requirement
       'Organization URN (for Company Pages)',
     ],
   },
-  twitter: {
-    instructions:
-      'Connect your Twitter/X account via the Twitter API v2. AutoBNBs will post tweets and threads using your account credentials through the OAuth 1.0a flow.',
-    requirements: [
-      'Twitter/X Developer Account',
-      'Twitter API App (Free tier works for posting)',
-      'API Key, API Secret, Access Token, and Access Secret',
-      'OAuth 1.0a credentials',
-    ],
-  },
   tiktok: {
     instructions:
       'Connect your TikTok Business account via the TikTok for Business API. AutoBNBs can schedule and publish video content on your behalf.',
@@ -73,7 +63,7 @@ const platformInstructions: Record<Platform, { instructions: string; requirement
   },
   buffer: {
     instructions:
-      'Connect Buffer to schedule posts across multiple platforms simultaneously. Buffer acts as a unified scheduler that can post to Instagram, Facebook, LinkedIn, and Twitter from one connection.',
+      'Connect Buffer to schedule posts across multiple platforms simultaneously. Buffer acts as a unified scheduler that can post to Instagram, Facebook, LinkedIn, and TikTok from one connection.',
     requirements: [
       'Buffer account (Free or paid)',
       'Buffer API access token',
@@ -99,7 +89,6 @@ const platformIcons: Record<Platform, React.ElementType> = {
   instagram: Instagram,
   facebook: Facebook,
   linkedin: Linkedin,
-  twitter: Twitter,
   tiktok: TikTokIcon,
   buffer: BufferIcon,
 };
@@ -238,7 +227,6 @@ export default function PlatformsPage() {
     instagram: settings.apiKeys?.instagram ?? '',
     facebook: settings.apiKeys?.facebook ?? '',
     linkedin: settings.apiKeys?.linkedin ?? '',
-    twitter: settings.apiKeys?.twitter ?? '',
     tiktok: settings.apiKeys?.tiktok ?? '',
   });
 
@@ -264,7 +252,7 @@ export default function PlatformsPage() {
     });
   };
 
-  const platforms: Platform[] = ['instagram', 'facebook', 'linkedin', 'twitter', 'tiktok', 'buffer'];
+  const platforms: Platform[] = ['instagram', 'facebook', 'tiktok', 'linkedin', 'buffer'];
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -398,14 +386,6 @@ export default function PlatformsPage() {
                 onChange={(val) => setApiKeys((prev) => ({ ...prev, linkedin: val }))}
                 placeholder="AQX..."
                 description="OAuth 2.0 token from LinkedIn Developer portal."
-              />
-              <ApiKeyField
-                label="Twitter API Key"
-                keyName="twitter"
-                value={apiKeys.twitter}
-                onChange={(val) => setApiKeys((prev) => ({ ...prev, twitter: val }))}
-                placeholder="your-twitter-api-key"
-                description="Twitter API v2 key from developer.twitter.com."
               />
             </div>
           </div>

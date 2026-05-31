@@ -156,7 +156,7 @@ function generateDemoContent(
       approved: false,
     },
     {
-      platform: 'twitter',
+      platform: 'tiktok',
       caption:
         'Your Airbnb should earn money while you sleep.\n\nMost hosts earn 34% less than they could. AutoBNBs closes that gap — automatically.\n\nFull property management. Zero daily effort. 🏡',
       hashtags: ['#AirbnbHost', '#PassiveIncome', '#AutoBNBs'],

@@ -1,4 +1,4 @@
-export type Platform = 'instagram' | 'facebook' | 'linkedin' | 'twitter' | 'tiktok' | 'buffer';
+export type Platform = 'instagram' | 'facebook' | 'linkedin' | 'tiktok' | 'buffer';
 export type PostStatus = 'draft' | 'scheduled' | 'published' | 'failed';
 export type ToneOfVoice = 'professional' | 'casual' | 'inspirational' | 'educational';
 export type ContentPillar =
@@ -103,7 +103,6 @@ export interface ApiKeys {
   instagram: string;
   facebook: string;
   linkedin: string;
-  twitter: string;
   tiktok: string;
 }
 

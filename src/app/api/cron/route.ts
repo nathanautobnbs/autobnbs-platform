@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
     const client = new Anthropic({ apiKey });
 
     // Generate daily content for all platforms
-    const platforms = ['instagram', 'facebook', 'linkedin', 'twitter'];
+    const platforms = ['instagram', 'facebook', 'tiktok', 'linkedin'];
     const message = await client.messages.create({
       model: CLAUDE_CONFIG.model,
       max_tokens: 2048,
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
       messages: [
         {
           role: 'user',
-          content: `Generate 4 social media posts for AutoBNBs (short-term rental management) — one for each platform: Instagram, Facebook, LinkedIn, Twitter.
+          content: `Generate 4 social media posts for AutoBNBs (short-term rental management) — one for each platform: Instagram, Facebook, TikTok, LinkedIn.
 
 Return a JSON array with the same structure as always. Keep content fresh and varied from yesterday's posts. Focus on our core message: property owners earning passive income through professional Airbnb management.`,
         },

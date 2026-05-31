@@ -73,18 +73,6 @@ export const PLATFORM_CONFIG: Record<Platform, {
     tone: 'Professional, thought-leadership focused. Share insights, data, and business value. Network-building.',
     emoji: '💼',
   },
-  twitter: {
-    label: 'Twitter / X',
-    color: '#111827',
-    bgColor: 'bg-gray-900',
-    lightBg: 'bg-gray-50',
-    textColor: 'text-gray-900',
-    borderColor: 'border-gray-300',
-    maxCaptionLength: 280,
-    maxHashtags: 3,
-    tone: 'Punchy, direct, witty. Threads-ready. Concise value delivery. Spark conversation.',
-    emoji: '🐦',
-  },
   tiktok: {
     label: 'TikTok',
     color: '#111827',
@@ -163,7 +151,7 @@ export const CONTENT_PILLAR_CONFIG: Record<ContentPillar, { label: string; descr
   },
 };
 
-export const PLATFORMS_LIST: Platform[] = ['instagram', 'facebook', 'linkedin', 'twitter', 'tiktok', 'buffer'];
+export const PLATFORMS_LIST: Platform[] = ['instagram', 'facebook', 'linkedin', 'tiktok', 'buffer'];
 
 export const SELECTABE_PLATFORMS: Platform[] = ['instagram', 'facebook', 'tiktok', 'linkedin'];
 
