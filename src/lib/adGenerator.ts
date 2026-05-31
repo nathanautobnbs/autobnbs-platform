@@ -14,7 +14,11 @@ const DIMS: Record<AdSize, { w: number; h: number }> = {
   story:  { w: 1080, h: 1920 },
 };
 
-const PAD_MIN = 60;
+// 80px padding each side — max text width = w - 160
+const SIDE_PAD = 80;
+const BOTTOM_PAD = 50;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -22,36 +26,37 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = reject;
-    img.src = src.startsWith('http') || src.startsWith('/api') ? src : window.location.origin + src;
+    img.src = src.startsWith('http') || src.startsWith('/api')
+      ? src
+      : window.location.origin + src;
   });
 }
 
-// Limit headline to maxWords — keeps the most impactful words
-function truncateHeadline(text: string, maxWords = 8): string {
-  const words = text.trim().split(/\s+/);
-  if (words.length <= maxWords) return text;
-  return words.slice(0, maxWords).join(' ');
+// Hard limit: first 6 words only
+function truncateHeadline(text: string): string {
+  return text.trim().split(/\s+/).slice(0, 6).join(' ');
 }
 
-// Shrinks font size until text fits maxWidth on a single line
+// Shrink font until single-line text fits maxWidth
 function fitFontSize(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
   startSize: number,
   minSize: number,
-  weight: string,
+  weight = '800',
 ): number {
   let size = startSize;
   while (size > minSize) {
     ctx.font = `${weight} ${size}px Inter, Arial, sans-serif`;
     if (ctx.measureText(text).width <= maxWidth) break;
-    size -= 2;
+    size -= 1;
   }
   return size;
 }
 
-// Word-wraps text — never clips mid-word, never overflows canvas
+// Word-wrap — never clips a word, never overflows maxWidth
+// Returns Y after the last drawn line
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -59,9 +64,9 @@ function wrapText(
   y: number,
   maxWidth: number,
   lineHeight: number,
-  maxLines = 4,
+  maxLines = 5,
 ): number {
-  const words = text.split(' ');
+  const words = text.split(' ').filter(Boolean);
   let line = '';
   let currentY = y;
   let lineCount = 0;
@@ -85,7 +90,7 @@ function wrapText(
   return currentY;
 }
 
-// Cover-style fill — image always fills entire canvas, no white gaps
+// Cover-fill — image always fills entire canvas, no gaps
 function drawBg(ctx: CanvasRenderingContext2D, w: number, h: number, img: HTMLImageElement | null) {
   if (img) {
     const scale = Math.max(w / img.width, h / img.height);
@@ -101,23 +106,22 @@ function drawBg(ctx: CanvasRenderingContext2D, w: number, h: number, img: HTMLIm
   }
 }
 
-// Dark bottom gradient — transparent → rgba(0,0,0,0.6) — text always readable
+// Strong bottom gradient — transparent → rgba(0,0,0,0.7)
 function drawBottomGradient(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
-  startFraction = 0.45,
+  startFraction = 0.42,
 ) {
   const scrimStart = Math.round(h * startFraction);
   const scrim = ctx.createLinearGradient(0, scrimStart, 0, h);
   scrim.addColorStop(0, 'rgba(0,0,0,0)');
-  scrim.addColorStop(0.4, 'rgba(0,0,0,0.40)');
+  scrim.addColorStop(0.45, 'rgba(0,0,0,0.45)');
   scrim.addColorStop(1, 'rgba(0,0,0,0.75)');
   ctx.fillStyle = scrim;
   ctx.fillRect(0, scrimStart, w, h - scrimStart);
 }
 
-// Text shadow: rgba(0,0,0,0.8) 2px 2px 8px — crisp on any background
 function setTextShadow(ctx: CanvasRenderingContext2D) {
   ctx.shadowColor = 'rgba(0,0,0,0.8)';
   ctx.shadowBlur = 8;
@@ -132,48 +136,87 @@ function clearShadow(ctx: CanvasRenderingContext2D) {
   ctx.shadowOffsetY = 0;
 }
 
-// Logo — larger, no background box, top-right corner
+// Logo — top-right, clean transparent PNG, NO background box
 function drawLogo(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
   logo: HTMLImageElement | null,
 ) {
-  const pad = Math.max(PAD_MIN, Math.round(w * 0.055));
-  const logoH = Math.round(h * 0.068);
-
   clearShadow(ctx);
   ctx.save();
-
   if (logo && logo.width > 0 && logo.height > 0) {
+    const logoH = Math.round(w * 0.062);
     const logoW = Math.round((logo.width / logo.height) * logoH);
-    const x = w - logoW - pad;
-    const y = pad;
-    ctx.globalAlpha = 0.95;
-    ctx.drawImage(logo, x, y, logoW, logoH);
+    ctx.globalAlpha = 0.92;
+    ctx.drawImage(logo, w - logoW - SIDE_PAD, SIDE_PAD, logoW, logoH);
     ctx.globalAlpha = 1;
   } else {
-    const fontSize = Math.round(w * 0.032);
+    // Clean text fallback — no coloured box
+    const fontSize = Math.round(w * 0.028);
     ctx.font = `800 ${fontSize}px Inter, Arial, sans-serif`;
-    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.shadowColor = 'rgba(0,0,0,0.7)';
+    ctx.shadowBlur = 6;
     ctx.textAlign = 'right';
-    ctx.fillText('AutoBNBs', w - pad, pad + fontSize);
+    ctx.fillText('AutoBNBs', w - SIDE_PAD, SIDE_PAD + fontSize);
   }
   ctx.restore();
 }
 
-// autobnbs.com — centered at very bottom of every image
+// autobnbs.com — centered at very bottom
 function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  const pad = Math.round(w * 0.048);
-  const size = Math.round(w * 0.024);
   clearShadow(ctx);
   ctx.save();
-  ctx.font = `500 ${size}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  const size = Math.round(w * 0.022);
+  ctx.font = `400 ${size}px Inter, Arial, sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.78)';
   ctx.textAlign = 'center';
-  ctx.fillText('autobnbs.com', w / 2, h - pad);
+  ctx.fillText('autobnbs.com', w / 2, h - BOTTOM_PAD);
   ctx.restore();
 }
+
+// ── Shared text block ────────────────────────────────────────────────────────
+// Draws headline + 16px gap + body text. Text always stays within canvas.
+
+function drawTextBlock(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  headline: string,
+  subtext: string,
+  headlineStartY: number,
+  textX: number,
+  maxTextWidth: number,
+) {
+  // Headline — at least 48px (w*0.044 ≈ 48 at 1080), bold white
+  const minHeadlineSize = Math.max(48, Math.round(w * 0.044));
+  const startHeadlineSize = Math.round(w * 0.066);
+  const headlineSize = fitFontSize(ctx, headline, maxTextWidth, startHeadlineSize, minHeadlineSize);
+  const headlineLineH = Math.round(headlineSize * 1.2);
+
+  setTextShadow(ctx);
+  ctx.font = `800 ${headlineSize}px Inter, Arial, sans-serif`;
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left';
+  const afterHeadline = wrapText(ctx, headline, textX, headlineStartY, maxTextWidth, headlineLineH, 3);
+
+  // Body text — ~22px, lighter, 16px below headline
+  const subSize = Math.max(20, Math.round(w * 0.021));
+  const subLineH = Math.round(subSize * 1.5);
+  const subY = afterHeadline + 16;
+
+  // Clamp so subtext never goes past the watermark area
+  const subYMax = h - BOTTOM_PAD - subSize * 4;
+  if (subY < subYMax) {
+    setTextShadow(ctx);
+    ctx.font = `400 ${subSize}px Inter, Arial, sans-serif`;
+    ctx.fillStyle = 'rgba(255,255,255,0.82)';
+    wrapText(ctx, subtext, textX, subY, maxTextWidth * 0.9, subLineH, 3);
+  }
+}
+
+// ── Public entry point ────────────────────────────────────────────────────────
 
 export async function generateAdDataUrl(config: AdConfig): Promise<string> {
   const { w, h } = DIMS[config.size];
@@ -182,14 +225,12 @@ export async function generateAdDataUrl(config: AdConfig): Promise<string> {
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
 
-  // Highest quality rendering
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Truncate headline to 8 words max
   const processedConfig: AdConfig = {
     ...config,
-    headline: truncateHeadline(config.headline, 8),
+    headline: truncateHeadline(config.headline),
   };
 
   const [bgImg, logoImg] = await Promise.all([
@@ -209,7 +250,7 @@ export async function generateAdDataUrl(config: AdConfig): Promise<string> {
 }
 
 // ── Layout: Full Bleed ────────────────────────────────────────────────────────
-// Background photo fills canvas, text in lower third over dark gradient
+// Photo fills canvas. Headline in bottom third over dark gradient.
 
 function drawFullBleed(
   ctx: CanvasRenderingContext2D,
@@ -221,32 +262,10 @@ function drawFullBleed(
   drawBg(ctx, w, h, bg);
   drawBottomGradient(ctx, w, h, 0.42);
 
-  const pad = Math.max(PAD_MIN, Math.round(w * 0.08));
-  const textW = w - pad * 2;
+  const maxTextWidth = w - SIDE_PAD * 2;
+  const headlineY = Math.round(h * 0.66);
 
-  let headlineSize = Math.round(w * 0.072);
-  headlineSize = fitFontSize(ctx, config.headline, textW, headlineSize, Math.round(w * 0.042), '800');
-  const lineH = Math.round(headlineSize * 1.22);
-
-  // Lower third: headline starts at 66% of height
-  const blockStart = Math.round(h * 0.66);
-
-  setTextShadow(ctx);
-  ctx.font = `800 ${headlineSize}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'left';
-  const afterHeadline = wrapText(ctx, config.headline, pad, blockStart, textW, lineH, 3);
-
-  const subSize = Math.round(w * 0.031);
-  setTextShadow(ctx);
-  ctx.font = `400 ${subSize}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  // Clamp subtext so it never goes past bottom padding boundary
-  const subY = Math.min(
-    afterHeadline + Math.round(subSize * 0.6),
-    h - PAD_MIN - Math.round(subSize * 3),
-  );
-  wrapText(ctx, config.subtext, pad, subY, textW * 0.88, Math.round(subSize * 1.45), 2);
+  drawTextBlock(ctx, w, h, config.headline, config.subtext, headlineY, SIDE_PAD, maxTextWidth);
 
   clearShadow(ctx);
   drawWatermark(ctx, w, h);
@@ -254,7 +273,7 @@ function drawFullBleed(
 }
 
 // ── Layout: Bottom Bar ────────────────────────────────────────────────────────
-// Top 58% is photo, bottom 42% is dark panel with text
+// Top 58% photo, bottom 42% dark panel. Text centred in the panel.
 
 function drawBottomBar(
   ctx: CanvasRenderingContext2D,
@@ -264,55 +283,36 @@ function drawBottomBar(
   logo: HTMLImageElement | null,
 ) {
   const split = Math.round(h * 0.58);
+  const barH = h - split;
 
-  // Draw photo clipped to top section
+  // Photo clipped to top section
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, w, split);
   ctx.clip();
   drawBg(ctx, w, h, bg);
-  // Subtle scrim at bottom of photo for smooth transition
   const imgScrim = ctx.createLinearGradient(0, split * 0.65, 0, split);
   imgScrim.addColorStop(0, 'rgba(0,0,0,0)');
-  imgScrim.addColorStop(1, 'rgba(0,0,0,0.55)');
+  imgScrim.addColorStop(1, 'rgba(0,0,0,0.5)');
   ctx.fillStyle = imgScrim;
   ctx.fillRect(0, 0, w, split);
   ctx.restore();
 
   // Dark bottom panel
   ctx.fillStyle = '#0d0d0d';
-  ctx.fillRect(0, split, w, h - split);
-
-  // Subtle separator line
-  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fillRect(0, split, w, barH);
+  ctx.fillStyle = 'rgba(255,255,255,0.1)';
   ctx.fillRect(0, split, w, 2);
 
-  const pad = Math.max(PAD_MIN, Math.round(w * 0.07));
-  const barH = h - split;
-  const textW = w - pad * 2;
+  const maxTextWidth = w - SIDE_PAD * 2;
 
-  let headlineSize = Math.round(w * 0.062);
-  headlineSize = fitFontSize(ctx, config.headline, textW, headlineSize, Math.round(w * 0.036), '800');
-  const lineH = Math.round(headlineSize * 1.22);
+  // Estimate block height to vertically centre text in the bar
+  const estHeadlineSize = Math.round(w * 0.055);
+  const estSubSize = Math.max(20, Math.round(w * 0.021));
+  const estBlockH = estHeadlineSize * 1.2 * 2 + 16 + estSubSize * 1.5 * 2;
+  const headlineY = split + Math.max(SIDE_PAD, (barH - estBlockH) / 2) + estHeadlineSize;
 
-  const estimatedTextH = lineH * 2 + Math.round(w * 0.032) * 1.5;
-  const textStartY = split + (barH - estimatedTextH) / 2 + headlineSize;
-
-  setTextShadow(ctx);
-  ctx.font = `800 ${headlineSize}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'left';
-  const afterHeadline = wrapText(ctx, config.headline, pad, textStartY, textW, lineH, 2);
-
-  const subSize = Math.round(w * 0.028);
-  setTextShadow(ctx);
-  ctx.font = `400 ${subSize}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.78)';
-  const subY = Math.min(
-    afterHeadline + Math.round(subSize * 0.4),
-    h - PAD_MIN - Math.round(subSize * 2.5),
-  );
-  wrapText(ctx, config.subtext, pad, subY, textW, Math.round(subSize * 1.5), 2);
+  drawTextBlock(ctx, w, h, config.headline, config.subtext, headlineY, SIDE_PAD, maxTextWidth);
 
   clearShadow(ctx);
   drawWatermark(ctx, w, h);
@@ -320,7 +320,7 @@ function drawBottomBar(
 }
 
 // ── Layout: Left Aligned ──────────────────────────────────────────────────────
-// Photo fills canvas, dark left-side gradient, text lower-left
+// Photo fills canvas. Dark left gradient. Headline lower-left.
 
 function drawLeftAligned(
   ctx: CanvasRenderingContext2D,
@@ -331,48 +331,32 @@ function drawLeftAligned(
 ) {
   drawBg(ctx, w, h, bg);
 
-  // Dark left-side gradient for text readability
+  // Dark left gradient
   const leftGrad = ctx.createLinearGradient(0, 0, w * 0.72, 0);
-  leftGrad.addColorStop(0, 'rgba(0,0,0,0.82)');
-  leftGrad.addColorStop(0.5, 'rgba(0,0,0,0.55)');
-  leftGrad.addColorStop(1, 'rgba(0,0,0,0.0)');
+  leftGrad.addColorStop(0, 'rgba(0,0,0,0.85)');
+  leftGrad.addColorStop(0.55, 'rgba(0,0,0,0.55)');
+  leftGrad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = leftGrad;
   ctx.fillRect(0, 0, w, h);
 
-  // Bottom gradient for watermark area
-  drawBottomGradient(ctx, w, h, 0.84);
+  // Bottom gradient for watermark readability
+  drawBottomGradient(ctx, w, h, 0.82);
 
-  const pad = Math.max(PAD_MIN, Math.round(w * 0.08));
-  const textW = Math.round(w * 0.54);
+  // Text fills left half
+  const maxTextWidth = Math.round(w * 0.52) - SIDE_PAD;
+  const headlineY = Math.round(h * 0.66);
 
-  // Lower third
-  const blockStart = Math.round(h * 0.64);
-  const accentBarY = blockStart - Math.round(h * 0.042);
-
-  // Decorative accent bar above headline
+  // Accent bar above headline
   clearShadow(ctx);
-  ctx.fillStyle = 'rgba(255,255,255,0.88)';
-  ctx.fillRect(pad, accentBarY, Math.round(w * 0.06), Math.round(w * 0.006));
-
-  let headlineSize = Math.round(w * 0.064);
-  headlineSize = fitFontSize(ctx, config.headline, textW, headlineSize, Math.round(w * 0.038), '800');
-  const lineH = Math.round(headlineSize * 1.24);
-
-  setTextShadow(ctx);
-  ctx.font = `800 ${headlineSize}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = '#ffffff';
-  ctx.textAlign = 'left';
-  const afterHeadline = wrapText(ctx, config.headline, pad, blockStart, textW, lineH, 3);
-
-  const subSize = Math.round(w * 0.030);
-  setTextShadow(ctx);
-  ctx.font = `400 ${subSize}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.90)';
-  const subY = Math.min(
-    afterHeadline + Math.round(subSize * 0.6),
-    h - PAD_MIN - Math.round(subSize * 2.5),
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.fillRect(
+    SIDE_PAD,
+    headlineY - Math.round(h * 0.038),
+    Math.round(w * 0.055),
+    Math.round(w * 0.005),
   );
-  wrapText(ctx, config.subtext, pad, subY, textW, Math.round(subSize * 1.5), 2);
+
+  drawTextBlock(ctx, w, h, config.headline, config.subtext, headlineY, SIDE_PAD, maxTextWidth);
 
   clearShadow(ctx);
   drawWatermark(ctx, w, h);
