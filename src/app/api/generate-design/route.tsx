@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 
-export const runtime = 'nodejs';
+export const runtime = 'edge';
 
 const W = 1080;
 
@@ -438,44 +438,40 @@ function GradientFallback({ headline, subtext, H }: Omit<TplProps, 'imageUrl'>) 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  let body: { headline?: string; subtext?: string; imageUrl?: string; layout?: string; size?: string } = {};
   try {
-    const { headline, subtext, imageUrl, layout, size } = await req.json();
+    body = await req.json();
+    const { headline, subtext, imageUrl, layout, size } = body;
 
     const H = size === 'story' ? 1920 : 1080;
 
     // Truncate headline to 6 words, subtext to 18 words
-    const h = String(headline).trim().split(/\s+/).slice(0, 6).join(' ');
-    const s = String(subtext).trim().split(/\s+/).slice(0, 18).join(' ');
+    const h = String(headline ?? '').trim().split(/\s+/).slice(0, 6).join(' ');
+    const s = String(subtext ?? '').trim().split(/\s+/).slice(0, 18).join(' ');
 
-    // ── Canva Connect API (activate by setting CANVA_API_TOKEN) ───────────────
-    // When configured, this uses the Canva Connect API to produce a
-    // Canva-designed PNG. Set CANVA_API_TOKEN in your environment variables.
-    if (process.env.CANVA_API_TOKEN) {
+    // Pre-validate the image URL before handing to Satori — a mid-render fetch
+    // failure crashes the Edge response stream before the catch block fires.
+    let resolvedImageUrl: string | null = null;
+    if (imageUrl) {
       try {
-        const designType = size === 'story' ? 'your_story' : 'instagram_post';
-        const createRes = await fetch('https://api.canva.com/rest/v1/designs', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${process.env.CANVA_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ design_type: { name: designType } }),
-        });
-        if (createRes.ok) {
-          const { design } = await createRes.json();
-          // TODO: use the Canva Autofill / Edit API to insert headline + subtext
-          // into the design, then export as PNG. For now fall through to ImageResponse.
-          console.log('Canva design created:', design.id, '— autofill not yet implemented');
-        }
+        const probe = await fetch(imageUrl, { method: 'HEAD' });
+        if (probe.ok) resolvedImageUrl = imageUrl;
       } catch {
-        // Fall through to ImageResponse
+        resolvedImageUrl = null;
       }
     }
 
-    // ── Primary: next/og ImageResponse ───────────────────────────────────────
-    const props: TplProps = { headline: h, subtext: s, imageUrl, H };
+    // Use gradient fallback if image unavailable
+    if (!resolvedImageUrl) {
+      return new ImageResponse(<GradientFallback headline={h} subtext={s} H={H} />, {
+        width: W,
+        height: H,
+      });
+    }
 
-    let template: React.ReactElement;
+    const props: TplProps = { headline: h, subtext: s, imageUrl: resolvedImageUrl, H };
+
+    let template: JSX.Element;
     if (layout === 'bottom-bar') {
       template = <BottomBar {...props} />;
     } else if (layout === 'left-aligned') {
@@ -486,13 +482,11 @@ export async function POST(req: NextRequest) {
 
     return new ImageResponse(template, { width: W, height: H });
   } catch (err) {
-    // ── Fallback: gradient design (no photo needed) ───────────────────────────
-    console.error('generate-design error:', err);
+    // Gradient fallback when photo load fails or any other error
     try {
-      const { headline, subtext, size } = await req.json().catch(() => ({}));
-      const H = size === 'story' ? 1920 : 1080;
-      const h = String(headline ?? 'AutoBNBs').trim().split(/\s+/).slice(0, 6).join(' ');
-      const s = String(subtext ?? '').trim().split(/\s+/).slice(0, 18).join(' ');
+      const H = body.size === 'story' ? 1920 : 1080;
+      const h = String(body.headline ?? 'AutoBNBs').trim().split(/\s+/).slice(0, 6).join(' ');
+      const s = String(body.subtext ?? '').trim().split(/\s+/).slice(0, 18).join(' ');
       return new ImageResponse(<GradientFallback headline={h} subtext={s} H={H} />, {
         width: W,
         height: H,

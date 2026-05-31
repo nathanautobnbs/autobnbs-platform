@@ -688,7 +688,7 @@ export default function ContentGeneratorPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-pink-700">Visual Ad mode is ON</p>
-                <p className="text-xs text-pink-500">A branded Instagram-style ad will be generated automatically for each post using Unsplash photos + HTML Canvas.</p>
+                <p className="text-xs text-pink-500">A professionally designed ad will be generated automatically for each post using Unsplash photos — ready to download and post.</p>
               </div>
             </div>
           )}

@@ -67,7 +67,7 @@ Rules:
 - Instagram captions can be longer (up to 300 words), use line breaks, emojis, and a strong CTA
 - LinkedIn captions are professional, insight-driven, data-backed, 150-250 words
 - Facebook captions are conversational, community-focused, 100-200 words
-- Twitter captions are under 250 characters, punchy and direct
+- TikTok captions are energetic, hook-first, under 150 words, trend-aware
 - Vary the content pillars across posts — don't repeat the same topic
 - Every post must mention or reference ${businessName} naturally
 - Hashtags should be a mix of high-volume (#AirbnbHost) and niche (#AirbnbManagementAustralia)
@@ -85,17 +85,17 @@ Return ONLY the JSON array. No other text.`;
     const responseText =
       message.content[0].type === 'text' ? message.content[0].text : '';
 
-    // Parse the JSON response
+    // Parse the JSON response — handle plain JSON, markdown code fences, and arrays
     let content: GeneratedContent[] = [];
     try {
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        content = JSON.parse(jsonMatch[0]);
-      } else {
-        content = JSON.parse(responseText);
-      }
+      // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+      const stripped = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+      // Extract the JSON array
+      const jsonMatch = stripped.match(/\[[\s\S]*\]/);
+      content = JSON.parse(jsonMatch ? jsonMatch[0] : stripped);
+      if (!Array.isArray(content)) throw new Error('Response is not an array');
     } catch {
-      console.error('Failed to parse Claude response:', responseText);
+      console.error('Failed to parse Claude response:', responseText.slice(0, 500));
       return NextResponse.json(
         { error: 'Failed to parse generated content' },
         { status: 500 }
