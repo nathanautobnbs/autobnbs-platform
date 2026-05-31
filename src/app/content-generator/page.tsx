@@ -99,18 +99,17 @@ async function buildAd(content: GeneratedContent, index: number, size: AdSize, i
   const img = image ?? await fetchUnsplashImage(content.contentPillar);
   if (!img) return null;
 
-  const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(img.url)}`;
   const { headline, subtext } = extractHeadlineAndSub(content.caption);
   const layout = LAYOUTS[index % LAYOUTS.length];
 
   try {
+    // Pass the original Unsplash URL — the server-side API fetches it directly
     const dataUrl = await generateAdDataUrl({
-      imageUrl: proxyUrl,
+      imageUrl: img.url,
       headline,
       subtext,
       layout,
       size,
-      logoUrl: '/logoman.svg',
     });
     return { dataUrl, image: img, layout };
   } catch {
