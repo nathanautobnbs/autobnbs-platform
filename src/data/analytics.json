@@ -1,0 +1,53 @@
+{
+  "overview": {
+    "totalPostsPublished": 47,
+    "avgEngagementRate": 6.8,
+    "bestPlatform": "instagram",
+    "bestContentType": "Success Stories"
+  },
+  "postsByDay": [
+    { "date": "2026-04-25", "count": 2 },
+    { "date": "2026-04-26", "count": 1 },
+    { "date": "2026-04-27", "count": 3 },
+    { "date": "2026-04-28", "count": 2 },
+    { "date": "2026-04-29", "count": 1 },
+    { "date": "2026-04-30", "count": 4 },
+    { "date": "2026-05-01", "count": 2 },
+    { "date": "2026-05-02", "count": 3 },
+    { "date": "2026-05-03", "count": 1 },
+    { "date": "2026-05-04", "count": 2 },
+    { "date": "2026-05-05", "count": 4 },
+    { "date": "2026-05-06", "count": 3 },
+    { "date": "2026-05-07", "count": 2 },
+    { "date": "2026-05-08", "count": 1 },
+    { "date": "2026-05-09", "count": 3 },
+    { "date": "2026-05-10", "count": 2 },
+    { "date": "2026-05-11", "count": 4 },
+    { "date": "2026-05-12", "count": 2 },
+    { "date": "2026-05-13", "count": 1 },
+    { "date": "2026-05-14", "count": 3 },
+    { "date": "2026-05-15", "count": 2 },
+    { "date": "2026-05-16", "count": 4 },
+    { "date": "2026-05-17", "count": 3 },
+    { "date": "2026-05-18", "count": 2 },
+    { "date": "2026-05-19", "count": 1 },
+    { "date": "2026-05-20", "count": 3 },
+    { "date": "2026-05-21", "count": 4 },
+    { "date": "2026-05-22", "count": 2 },
+    { "date": "2026-05-23", "count": 3 },
+    { "date": "2026-05-24", "count": 4 }
+  ],
+  "byPlatform": {
+    "instagram": { "posts": 18, "avgEngagement": 7.8, "totalReach": 76400 },
+    "facebook": { "posts": 14, "avgEngagement": 6.2, "totalReach": 58200 },
+    "tiktok": { "posts": 8, "avgEngagement": 9.4, "totalReach": 112000 },
+    "linkedin": { "posts": 10, "avgEngagement": 5.9, "totalReach": 28100 }
+  },
+  "byContentType": {
+    "success-stories": { "posts": 12, "avgEngagement": 8.9 },
+    "airbnb-tips": { "posts": 14, "avgEngagement": 7.2 },
+    "passive-income": { "posts": 11, "avgEngagement": 6.8 },
+    "property-management": { "posts": 6, "avgEngagement": 5.4 },
+    "market-insights": { "posts": 4, "avgEngagement": 5.1 }
+  }
+}

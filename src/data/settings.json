@@ -1,0 +1,32 @@
+{
+  "business": {
+    "name": "AutoBNBs",
+    "industry": "Short-Term Rental Property Management",
+    "targetAudience": "Property owners globally looking to earn passive income through Airbnb automation",
+    "website": "https://autobnbs.com",
+    "email": "contact@autobnbs.com"
+  },
+  "contentPreferences": {
+    "defaultTone": "inspirational",
+    "defaultPlatforms": ["instagram", "facebook", "linkedin"],
+    "postingFrequency": "daily",
+    "preferredTimes": ["09:00", "12:00", "17:00"],
+    "defaultContentPillars": ["passive-income", "airbnb-tips", "success-stories"]
+  },
+  "notifications": {
+    "emailScheduledPosts": true,
+    "emailFailedPosts": true,
+    "weeklyPerformanceSummary": true,
+    "notificationEmail": "contact@autobnbs.com"
+  },
+  "apiKeys": {
+    "claude": "",
+    "unsplash": "",
+    "buffer": "",
+    "instagram": "",
+    "facebook": "",
+    "linkedin": "",
+    "twitter": "",
+    "tiktok": ""
+  }
+}

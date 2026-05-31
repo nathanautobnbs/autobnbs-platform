@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+  <!-- Background pill -->
+  <rect width="320" height="80" rx="16" fill="#FF69B4"/>
+  <!-- House icon -->
+  <g transform="translate(16, 8)">
+    <polygon points="32,4 60,26 56,26 56,60 8,60 8,26 4,26" fill="white" opacity="0.95"/>
+    <rect x="22" y="38" width="14" height="22" rx="2" fill="#FF69B4"/>
+  </g>
+  <!-- Text: AutoBNBs -->
+  <text x="82" y="50" font-family="Arial, sans-serif" font-weight="800" font-size="30" fill="white" letter-spacing="-0.5">AutoBNBs</text>
+</svg>
