@@ -35,7 +35,7 @@ const CHART_COLORS: Record<Platform, string> = {
   facebook: '#3b82f6',
   linkedin: '#1d4ed8',
   twitter: '#111827',
-  tiktok: '#ef4444',
+  tiktok: '#111827',
   buffer: '#f97316',
 };
 
