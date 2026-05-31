@@ -32,7 +32,7 @@ const PlatformIcon: Record<Platform, React.ElementType> = {
 
 function PostDot({ post }: { post: Post }) {
   const colors = getPlatformColors(post.platform);
-  const Icon = PlatformIcon[post.platform];
+  const Icon = PlatformIcon[post.platform] ?? (() => null);
   return (
     <div
       className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-white text-xs ${colors.bgColor} truncate`}
@@ -49,7 +49,7 @@ function PostDot({ post }: { post: Post }) {
 function ListPostRow({ post, onClick }: { post: Post; onClick: () => void }) {
   const colors = getPlatformColors(post.platform);
   const statusConfig = getStatusConfig(post.status);
-  const Icon = PlatformIcon[post.platform];
+  const Icon = PlatformIcon[post.platform] ?? (() => null);
   const date = post.scheduledAt ?? post.publishedAt ?? post.createdAt;
 
   return (
@@ -361,7 +361,7 @@ export default function CalendarPage() {
             <div className="flex items-center gap-3">
               {(() => {
                 const cfg = getPlatformColors(selectedPost.platform);
-                const Icon = PlatformIcon[selectedPost.platform];
+                const Icon = PlatformIcon[selectedPost.platform] ?? (() => null);
                 const statusCfg = getStatusConfig(selectedPost.status);
                 return (
                   <>

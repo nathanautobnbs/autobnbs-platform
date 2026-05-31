@@ -356,7 +356,7 @@ export default function AnalyticsPage() {
               {postsWithEngagement.length > 0 ? (
                 postsWithEngagement.map((post) => {
                   const cfg = getPlatformColors(post.platform);
-                  const Icon = PlatformIcon[post.platform];
+                  const Icon = PlatformIcon[post.platform] ?? (() => null);
                   const engRate = calculateEngagementRate(post);
                   const date = post.publishedAt ?? post.createdAt;
                   return (

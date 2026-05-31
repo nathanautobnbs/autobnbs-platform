@@ -69,7 +69,7 @@ async function fetchUnsplashImage(pillar: string): Promise<UnsplashImage | null>
   const page = Math.floor(Math.random() * 4) + 1;
   try {
     const res = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&page=${page}&per_page=5&orientation=landscape&content_filter=high&w=1080&q=85`,
+      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&page=${page}&per_page=5&orientation=landscape&content_filter=high`,
       { headers: { Authorization: `Client-ID ${ACCESS_KEY}` } }
     );
     if (!res.ok) return null;
@@ -79,7 +79,9 @@ async function fetchUnsplashImage(pillar: string): Promise<UnsplashImage | null>
     const photo = photos[Math.floor(Math.random() * photos.length)];
     return {
       id: photo.id,
-      url: photo.urls.full ?? photo.urls.regular,
+      url: photo.urls.raw
+        ? `${photo.urls.raw}&w=1080&q=95&fm=jpg&fit=crop`
+        : photo.urls.full ?? photo.urls.regular,
       thumbUrl: photo.urls.small,
       description: photo.description ?? photo.alt_description ?? '',
       authorName: photo.user.name,
@@ -366,9 +368,9 @@ export default function ContentGeneratorPage() {
   const dispatch = useAppDispatch();
 
   const [businessName, setBusinessName] = useState(settings.business.name || 'AutoBNBs');
-  const [selectedPillars, setSelectedPillars] = useState<string[]>(['passive-income', 'airbnb-tips', 'success-stories']);
+  const [selectedPillars, setSelectedPillars] = useState<string[]>([]);
   const [tone, setTone] = useState<ToneOfVoice>('inspirational');
-  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(['instagram', 'facebook', 'tiktok', 'linkedin']);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([]);
   const [numberOfPosts, setNumberOfPosts] = useState(4);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -624,23 +626,43 @@ export default function ContentGeneratorPage() {
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Target Platforms</label>
               <div className="flex flex-wrap gap-2">
-                {SELECTABE_PLATFORMS.map(platform => {
-                  const cfg = PLATFORM_CONFIG[platform];
-                  const Icon = PlatformIcon[platform];
-                  const isSelected = selectedPlatforms.includes(platform);
-                  return (
-                    <button
-                      key={platform}
-                      onClick={() => togglePlatform(platform)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
-                        isSelected ? `${cfg.bgColor} text-white border-transparent` : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <Icon />
-                      {cfg.label}
-                    </button>
-                  );
-                })}
+                {/* Instagram */}
+                <button
+                  onClick={() => togglePlatform('instagram')}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                    selectedPlatforms.includes('instagram') ? 'bg-purple-500 text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <Instagram size={16} /> Instagram
+                </button>
+                {/* Facebook */}
+                <button
+                  onClick={() => togglePlatform('facebook')}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                    selectedPlatforms.includes('facebook') ? 'bg-blue-500 text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <Facebook size={16} /> Facebook
+                </button>
+                {/* TikTok */}
+                <button
+                  onClick={() => togglePlatform('tiktok')}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                    selectedPlatforms.includes('tiktok') ? 'bg-gray-900 text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <PlatformIcon.tiktok /> TikTok
+                </button>
+                {/* LinkedIn */}
+                <button
+                  onClick={() => togglePlatform('linkedin')}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-medium transition-all ${
+                    selectedPlatforms.includes('linkedin') ? 'text-white border-transparent' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  }`}
+                  style={selectedPlatforms.includes('linkedin') ? { backgroundColor: '#0A66C2' } : undefined}
+                >
+                  <Linkedin size={16} /> LinkedIn
+                </button>
               </div>
             </div>
             <div>
@@ -772,7 +794,7 @@ export default function ContentGeneratorPage() {
             <>
               <div className="flex items-center gap-2 mb-2">
                 <div className={`w-6 h-6 rounded-lg ${getPlatformColors(editingContent.platform).bgColor} flex items-center justify-center text-white`}>
-                  {(() => { const I = PlatformIcon[editingContent.platform]; return <I />; })()}
+                  {(() => { const I = PlatformIcon[editingContent.platform] ?? (() => null); return <I />; })()}
                 </div>
                 <span className="text-sm font-semibold text-gray-700">{getPlatformColors(editingContent.platform).label}</span>
               </div>

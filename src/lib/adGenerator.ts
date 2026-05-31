@@ -14,7 +14,7 @@ const DIMS: Record<AdSize, { w: number; h: number }> = {
   story:  { w: 1080, h: 1920 },
 };
 
-const PINK = '#FF69B4';
+const PAD_MIN = 60;
 
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -22,12 +22,18 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.crossOrigin = 'anonymous';
     img.onload = () => resolve(img);
     img.onerror = reject;
-    // Use absolute URL so canvas can resolve it
     img.src = src.startsWith('http') || src.startsWith('/api') ? src : window.location.origin + src;
   });
 }
 
-// Auto-sizes font down until text fits in maxWidth on a single line (for short headlines)
+// Limit headline to maxWords — keeps the most impactful words
+function truncateHeadline(text: string, maxWords = 8): string {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= maxWords) return text;
+  return words.slice(0, maxWords).join(' ');
+}
+
+// Shrinks font size until text fits maxWidth on a single line
 function fitFontSize(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -45,7 +51,7 @@ function fitFontSize(
   return size;
 }
 
-// Wraps text, returns the Y position after the last line
+// Word-wraps text — never clips mid-word, never overflows canvas
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -79,6 +85,7 @@ function wrapText(
   return currentY;
 }
 
+// Cover-style fill — image always fills entire canvas, no white gaps
 function drawBg(ctx: CanvasRenderingContext2D, w: number, h: number, img: HTMLImageElement | null) {
   if (img) {
     const scale = Math.max(w / img.width, h / img.height);
@@ -87,17 +94,34 @@ function drawBg(ctx: CanvasRenderingContext2D, w: number, h: number, img: HTMLIm
     ctx.drawImage(img, (w - sw) / 2, (h - sh) / 2, sw, sh);
   } else {
     const grad = ctx.createLinearGradient(0, 0, w, h);
-    grad.addColorStop(0, '#FF69B4');
-    grad.addColorStop(1, '#C2185B');
+    grad.addColorStop(0, '#111827');
+    grad.addColorStop(1, '#1e293b');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, w, h);
   }
 }
 
-function setShadow(ctx: CanvasRenderingContext2D, blur = 18, alpha = 0.6) {
-  ctx.shadowColor = `rgba(0,0,0,${alpha})`;
-  ctx.shadowBlur = blur;
-  ctx.shadowOffsetX = 0;
+// Dark bottom gradient — transparent → rgba(0,0,0,0.6) — text always readable
+function drawBottomGradient(
+  ctx: CanvasRenderingContext2D,
+  w: number,
+  h: number,
+  startFraction = 0.45,
+) {
+  const scrimStart = Math.round(h * startFraction);
+  const scrim = ctx.createLinearGradient(0, scrimStart, 0, h);
+  scrim.addColorStop(0, 'rgba(0,0,0,0)');
+  scrim.addColorStop(0.4, 'rgba(0,0,0,0.40)');
+  scrim.addColorStop(1, 'rgba(0,0,0,0.75)');
+  ctx.fillStyle = scrim;
+  ctx.fillRect(0, scrimStart, w, h - scrimStart);
+}
+
+// Text shadow: rgba(0,0,0,0.8) 2px 2px 8px — crisp on any background
+function setTextShadow(ctx: CanvasRenderingContext2D) {
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 2;
   ctx.shadowOffsetY = 2;
 }
 
@@ -108,14 +132,15 @@ function clearShadow(ctx: CanvasRenderingContext2D) {
   ctx.shadowOffsetY = 0;
 }
 
+// Logo — larger, no background box, top-right corner
 function drawLogo(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
   logo: HTMLImageElement | null,
 ) {
-  const pad = Math.round(w * 0.045);
-  const logoH = Math.round(h * 0.052);
+  const pad = Math.max(PAD_MIN, Math.round(w * 0.055));
+  const logoH = Math.round(h * 0.068);
 
   clearShadow(ctx);
   ctx.save();
@@ -123,44 +148,30 @@ function drawLogo(
   if (logo && logo.width > 0 && logo.height > 0) {
     const logoW = Math.round((logo.width / logo.height) * logoH);
     const x = w - logoW - pad;
-    const y = h - logoH - pad;
-    // Semi-transparent pill background so logo reads on any image
-    const pillPad = 10;
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.beginPath();
-    ctx.roundRect(x - pillPad, y - pillPad, logoW + pillPad * 2, logoH + pillPad * 2, 10);
-    ctx.fill();
+    const y = pad;
+    ctx.globalAlpha = 0.95;
     ctx.drawImage(logo, x, y, logoW, logoH);
+    ctx.globalAlpha = 1;
   } else {
-    // Text fallback badge
-    const fontSize = Math.round(w * 0.025);
+    const fontSize = Math.round(w * 0.032);
     ctx.font = `800 ${fontSize}px Inter, Arial, sans-serif`;
-    const text = 'AutoBNBs';
-    const textW = ctx.measureText(text).width;
-    const pillW = textW + 28;
-    const pillH = fontSize + 18;
-    const x = w - pillW - pad;
-    const y = h - pillH - pad;
-    ctx.fillStyle = PINK;
-    ctx.beginPath();
-    ctx.roundRect(x, y, pillW, pillH, 8);
-    ctx.fill();
-    ctx.fillStyle = '#ffffff';
-    ctx.textAlign = 'center';
-    ctx.fillText(text, x + pillW / 2, y + pillH / 2 + fontSize * 0.35);
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.textAlign = 'right';
+    ctx.fillText('AutoBNBs', w - pad, pad + fontSize);
   }
   ctx.restore();
 }
 
+// autobnbs.com — centered at very bottom of every image
 function drawWatermark(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  const pad = Math.round(w * 0.045);
-  const size = Math.round(w * 0.023);
+  const pad = Math.round(w * 0.048);
+  const size = Math.round(w * 0.024);
   clearShadow(ctx);
   ctx.save();
-  ctx.font = `600 ${size}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.8)';
-  ctx.textAlign = 'left';
-  ctx.fillText('autobnbs.com', pad, h - pad);
+  ctx.font = `500 ${size}px Inter, Arial, sans-serif`;
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.textAlign = 'center';
+  ctx.fillText('autobnbs.com', w / 2, h - pad);
   ctx.restore();
 }
 
@@ -171,21 +182,34 @@ export async function generateAdDataUrl(config: AdConfig): Promise<string> {
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
 
+  // Highest quality rendering
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  // Truncate headline to 8 words max
+  const processedConfig: AdConfig = {
+    ...config,
+    headline: truncateHeadline(config.headline, 8),
+  };
+
   const [bgImg, logoImg] = await Promise.all([
     loadImage(config.imageUrl).catch(() => null),
     loadImage(config.logoUrl).catch(() => null),
   ]);
 
   if (config.layout === 'full-bleed') {
-    drawFullBleed(ctx, w, h, bgImg, config, logoImg);
+    drawFullBleed(ctx, w, h, bgImg, processedConfig, logoImg);
   } else if (config.layout === 'bottom-bar') {
-    drawBottomBar(ctx, w, h, bgImg, config, logoImg);
+    drawBottomBar(ctx, w, h, bgImg, processedConfig, logoImg);
   } else {
-    drawLeftAligned(ctx, w, h, bgImg, config, logoImg);
+    drawLeftAligned(ctx, w, h, bgImg, processedConfig, logoImg);
   }
 
   return canvas.toDataURL('image/png');
 }
+
+// ── Layout: Full Bleed ────────────────────────────────────────────────────────
+// Background photo fills canvas, text in lower third over dark gradient
 
 function drawFullBleed(
   ctx: CanvasRenderingContext2D,
@@ -195,47 +219,42 @@ function drawFullBleed(
   logo: HTMLImageElement | null,
 ) {
   drawBg(ctx, w, h, bg);
+  drawBottomGradient(ctx, w, h, 0.42);
 
-  // Subtle pink tint — 25% so the photo shows through clearly
-  ctx.fillStyle = 'rgba(255,105,180,0.25)';
-  ctx.fillRect(0, 0, w, h);
-
-  // Heavy dark scrim on the BOTTOM third only — text lives there
-  const scrimStart = Math.round(h * 0.45);
-  const scrim = ctx.createLinearGradient(0, scrimStart, 0, h);
-  scrim.addColorStop(0, 'rgba(0,0,0,0)');
-  scrim.addColorStop(0.4, 'rgba(0,0,0,0.55)');
-  scrim.addColorStop(1, 'rgba(0,0,0,0.80)');
-  ctx.fillStyle = scrim;
-  ctx.fillRect(0, scrimStart, w, h - scrimStart);
-
-  const pad = Math.round(w * 0.08);
+  const pad = Math.max(PAD_MIN, Math.round(w * 0.08));
   const textW = w - pad * 2;
 
-  // Auto-size headline font to fit within textW (max 3 lines)
   let headlineSize = Math.round(w * 0.072);
-  const minHeadlineSize = Math.round(w * 0.042);
-  headlineSize = fitFontSize(ctx, config.headline, textW * 0.9, headlineSize, minHeadlineSize, '800');
+  headlineSize = fitFontSize(ctx, config.headline, textW, headlineSize, Math.round(w * 0.042), '800');
+  const lineH = Math.round(headlineSize * 1.22);
 
-  // Text block starts at ~65% height (lower third)
-  const blockStart = Math.round(h * 0.63);
+  // Lower third: headline starts at 66% of height
+  const blockStart = Math.round(h * 0.66);
 
-  setShadow(ctx, 20, 0.65);
+  setTextShadow(ctx);
   ctx.font = `800 ${headlineSize}px Inter, Arial, sans-serif`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'left';
-  const afterHeadline = wrapText(ctx, config.headline, pad, blockStart, textW, Math.round(headlineSize * 1.22), 3);
+  const afterHeadline = wrapText(ctx, config.headline, pad, blockStart, textW, lineH, 3);
 
-  // Subtext
   const subSize = Math.round(w * 0.031);
-  setShadow(ctx, 12, 0.5);
+  setTextShadow(ctx);
   ctx.font = `400 ${subSize}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.90)';
-  wrapText(ctx, config.subtext, pad, afterHeadline + Math.round(subSize * 0.5), textW * 0.85, Math.round(subSize * 1.45), 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  // Clamp subtext so it never goes past bottom padding boundary
+  const subY = Math.min(
+    afterHeadline + Math.round(subSize * 0.6),
+    h - PAD_MIN - Math.round(subSize * 3),
+  );
+  wrapText(ctx, config.subtext, pad, subY, textW * 0.88, Math.round(subSize * 1.45), 2);
 
+  clearShadow(ctx);
   drawWatermark(ctx, w, h);
   drawLogo(ctx, w, h, logo);
 }
+
+// ── Layout: Bottom Bar ────────────────────────────────────────────────────────
+// Top 58% is photo, bottom 42% is dark panel with text
 
 function drawBottomBar(
   ctx: CanvasRenderingContext2D,
@@ -244,54 +263,64 @@ function drawBottomBar(
   config: AdConfig,
   logo: HTMLImageElement | null,
 ) {
-  const split = Math.round(h * 0.60);
+  const split = Math.round(h * 0.58);
 
-  // Top image area
+  // Draw photo clipped to top section
   ctx.save();
   ctx.beginPath();
   ctx.rect(0, 0, w, split);
   ctx.clip();
   drawBg(ctx, w, h, bg);
-  ctx.fillStyle = 'rgba(255,105,180,0.22)';
+  // Subtle scrim at bottom of photo for smooth transition
+  const imgScrim = ctx.createLinearGradient(0, split * 0.65, 0, split);
+  imgScrim.addColorStop(0, 'rgba(0,0,0,0)');
+  imgScrim.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = imgScrim;
   ctx.fillRect(0, 0, w, split);
   ctx.restore();
 
-  // Pink bottom bar
-  ctx.fillStyle = PINK;
+  // Dark bottom panel
+  ctx.fillStyle = '#0d0d0d';
   ctx.fillRect(0, split, w, h - split);
 
-  // Separator line
-  ctx.fillStyle = 'rgba(255,255,255,0.25)';
-  ctx.fillRect(0, split, w, 3);
+  // Subtle separator line
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fillRect(0, split, w, 2);
 
-  const pad = Math.round(w * 0.07);
+  const pad = Math.max(PAD_MIN, Math.round(w * 0.07));
   const barH = h - split;
   const textW = w - pad * 2;
 
-  // Auto-size headline
   let headlineSize = Math.round(w * 0.062);
-  headlineSize = fitFontSize(ctx, config.headline, textW * 0.88, headlineSize, Math.round(w * 0.036), '800');
+  headlineSize = fitFontSize(ctx, config.headline, textW, headlineSize, Math.round(w * 0.036), '800');
   const lineH = Math.round(headlineSize * 1.22);
 
-  // Centre text vertically in the bar
-  const textBlockH = lineH * 2 + Math.round(w * 0.03) * 1.4;
-  const textStartY = split + (barH - textBlockH) / 2 + headlineSize;
+  const estimatedTextH = lineH * 2 + Math.round(w * 0.032) * 1.5;
+  const textStartY = split + (barH - estimatedTextH) / 2 + headlineSize;
 
-  setShadow(ctx, 8, 0.2);
+  setTextShadow(ctx);
   ctx.font = `800 ${headlineSize}px Inter, Arial, sans-serif`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'left';
-  const afterHeadline = wrapText(ctx, config.headline, pad, textStartY, textW * 0.82, lineH, 2);
+  const afterHeadline = wrapText(ctx, config.headline, pad, textStartY, textW, lineH, 2);
 
   const subSize = Math.round(w * 0.028);
-  clearShadow(ctx);
+  setTextShadow(ctx);
   ctx.font = `400 ${subSize}px Inter, Arial, sans-serif`;
-  ctx.fillStyle = 'rgba(255,255,255,0.88)';
-  wrapText(ctx, config.subtext, pad, afterHeadline + Math.round(subSize * 0.3), textW * 0.78, Math.round(subSize * 1.5), 2);
+  ctx.fillStyle = 'rgba(255,255,255,0.78)';
+  const subY = Math.min(
+    afterHeadline + Math.round(subSize * 0.4),
+    h - PAD_MIN - Math.round(subSize * 2.5),
+  );
+  wrapText(ctx, config.subtext, pad, subY, textW, Math.round(subSize * 1.5), 2);
 
+  clearShadow(ctx);
   drawWatermark(ctx, w, h);
   drawLogo(ctx, w, h, logo);
 }
+
+// ── Layout: Left Aligned ──────────────────────────────────────────────────────
+// Photo fills canvas, dark left-side gradient, text lower-left
 
 function drawLeftAligned(
   ctx: CanvasRenderingContext2D,
@@ -302,39 +331,50 @@ function drawLeftAligned(
 ) {
   drawBg(ctx, w, h, bg);
 
-  // Horizontal gradient from left — deeper coverage than before
-  const grad = ctx.createLinearGradient(0, 0, w * 0.80, 0);
-  grad.addColorStop(0, 'rgba(180,15,115,0.88)');
-  grad.addColorStop(0.5, 'rgba(255,105,180,0.60)');
-  grad.addColorStop(1, 'rgba(255,105,180,0.0)');
-  ctx.fillStyle = grad;
+  // Dark left-side gradient for text readability
+  const leftGrad = ctx.createLinearGradient(0, 0, w * 0.72, 0);
+  leftGrad.addColorStop(0, 'rgba(0,0,0,0.82)');
+  leftGrad.addColorStop(0.5, 'rgba(0,0,0,0.55)');
+  leftGrad.addColorStop(1, 'rgba(0,0,0,0.0)');
+  ctx.fillStyle = leftGrad;
   ctx.fillRect(0, 0, w, h);
 
-  const pad = Math.round(w * 0.08);
-  const textW = Math.round(w * 0.52);
-  const blockStart = Math.round(h * 0.30);
+  // Bottom gradient for watermark area
+  drawBottomGradient(ctx, w, h, 0.84);
 
-  // Decorative accent bar
+  const pad = Math.max(PAD_MIN, Math.round(w * 0.08));
+  const textW = Math.round(w * 0.54);
+
+  // Lower third
+  const blockStart = Math.round(h * 0.64);
+  const accentBarY = blockStart - Math.round(h * 0.042);
+
+  // Decorative accent bar above headline
   clearShadow(ctx);
-  ctx.fillStyle = 'rgba(255,255,255,0.9)';
-  ctx.fillRect(pad, blockStart - Math.round(h * 0.055), Math.round(w * 0.06), Math.round(w * 0.007));
+  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.fillRect(pad, accentBarY, Math.round(w * 0.06), Math.round(w * 0.006));
 
-  // Auto-size headline
   let headlineSize = Math.round(w * 0.064);
-  headlineSize = fitFontSize(ctx, config.headline, textW * 0.95, headlineSize, Math.round(w * 0.038), '800');
+  headlineSize = fitFontSize(ctx, config.headline, textW, headlineSize, Math.round(w * 0.038), '800');
+  const lineH = Math.round(headlineSize * 1.24);
 
-  setShadow(ctx, 16, 0.55);
+  setTextShadow(ctx);
   ctx.font = `800 ${headlineSize}px Inter, Arial, sans-serif`;
   ctx.fillStyle = '#ffffff';
   ctx.textAlign = 'left';
-  const afterHeadline = wrapText(ctx, config.headline, pad, blockStart, textW, Math.round(headlineSize * 1.24), 3);
+  const afterHeadline = wrapText(ctx, config.headline, pad, blockStart, textW, lineH, 3);
 
   const subSize = Math.round(w * 0.030);
-  setShadow(ctx, 10, 0.4);
+  setTextShadow(ctx);
   ctx.font = `400 ${subSize}px Inter, Arial, sans-serif`;
   ctx.fillStyle = 'rgba(255,255,255,0.90)';
-  wrapText(ctx, config.subtext, pad, afterHeadline + Math.round(subSize * 0.5), textW, Math.round(subSize * 1.5), 2);
+  const subY = Math.min(
+    afterHeadline + Math.round(subSize * 0.6),
+    h - PAD_MIN - Math.round(subSize * 2.5),
+  );
+  wrapText(ctx, config.subtext, pad, subY, textW, Math.round(subSize * 1.5), 2);
 
+  clearShadow(ctx);
   drawWatermark(ctx, w, h);
   drawLogo(ctx, w, h, logo);
 }

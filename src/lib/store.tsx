@@ -4,6 +4,7 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
 import { AppState, AppAction, PlatformConnection } from '@/types';
 import defaultSettings from '@/data/settings.json';
 import defaultPosts from '@/data/posts.json';
+import { PLATFORM_CONFIG } from '@/lib/config';
 
 const STORAGE_KEY = 'autobnbs-state';
 
@@ -94,9 +95,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
+        // Strip platform connections for platforms no longer in config (e.g. removed twitter)
+        const validConnections = (parsed.platformConnections ?? init.platformConnections)
+          .filter((pc: PlatformConnection) => pc.platform in PLATFORM_CONFIG);
+        // Remap any posts that reference removed platforms to their replacement
+        const PLATFORM_REMAP: Record<string, string> = { twitter: 'tiktok' };
+        const sanitizedPosts = (parsed.posts ?? init.posts).map((p: { platform: string }) =>
+          PLATFORM_REMAP[p.platform] ? { ...p, platform: PLATFORM_REMAP[p.platform] } : p
+        );
+        const sanitizedGenerated = (parsed.generatedContent ?? init.generatedContent).map((c: { platform: string }) =>
+          PLATFORM_REMAP[c.platform] ? { ...c, platform: PLATFORM_REMAP[c.platform] } : c
+        );
         return {
           ...init,
           ...parsed,
+          posts: sanitizedPosts,
+          generatedContent: sanitizedGenerated,
+          platformConnections: validConnections,
           isGenerating: false,
           selectedImage: null,
         };

@@ -66,7 +66,13 @@ function StatCard({ label, value, icon: Icon, accent, iconBg, iconColor, change 
 const platformIcons: Record<Platform, React.ElementType> = {
   instagram: Instagram,
   facebook: Facebook,
-  linkedin: Linkedin,
+  linkedin: () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" width={18} height={18}>
+      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+      <rect x="2" y="9" width="4" height="12" />
+      <circle cx="4" cy="4" r="2" />
+    </svg>
+  ),
   tiktok: () => (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
       <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.27 8.27 0 004.84 1.54V6.77a4.85 4.85 0 01-1.07-.08z" />
@@ -77,13 +83,15 @@ const platformIcons: Record<Platform, React.ElementType> = {
 
 function PlatformStatusRow({ platform, connected }: { platform: Platform; connected: boolean }) {
   const config = PLATFORM_CONFIG[platform];
+  if (!config) return null;
   const Icon = platformIcons[platform] ?? (() => null);
 
   return (
     <div className="flex items-center justify-between py-2.5 px-3 rounded-xl hover:bg-gray-50 transition-colors group">
       <div className="flex items-center gap-3">
         <div
-          className={`w-9 h-9 rounded-xl ${config.bgColor} flex items-center justify-center text-white`}
+          className={`w-9 h-9 rounded-xl flex items-center justify-center text-white ${platform === 'linkedin' ? '' : config.bgColor}`}
+          style={platform === 'linkedin' ? { backgroundColor: '#0A66C2' } : undefined}
         >
           <Icon />
         </div>
