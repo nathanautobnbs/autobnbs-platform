@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
-import { CLAUDE_CONFIG, PLATFORM_CONFIG, TONE_CONFIG } from '@/lib/config';
+import { CLAUDE_CONFIG, TONE_CONFIG } from '@/lib/config';
 import { Platform, ToneOfVoice, GeneratedContent } from '@/types';
 
 interface GenerateRequest {
@@ -9,6 +9,117 @@ interface GenerateRequest {
   tone: ToneOfVoice;
   platforms: Platform[];
   numberOfPosts: number;
+}
+
+// Full platform-specific rules injected directly into the prompt
+const PLATFORM_RULES: Record<Platform, string> = {
+  instagram: `
+INSTAGRAM POST RULES — follow every rule exactly:
+• Tone: Conversational, visual storytelling, aspirational
+• Hook: First line must stop the scroll — punchy, emotional, or surprising (under 10 words)
+• Length: 150–300 words for the caption body
+• Format: Use line breaks and spacing after every 1–2 sentences for readability
+• Emojis: Use naturally throughout — 5 to 10 total
+• Hashtags: 20–30 hashtags at the very end, mix of high-volume (#AirbnbHost, #PassiveIncome) and niche (#STRManagementNZ, #AirbnbManagementAustralia)
+• CTA: End with one of: "Link in bio 🔗", "DM us PASSIVE 💬", or "Save this post 📌"
+• Platform field: MUST be "instagram"`,
+
+  facebook: `
+FACEBOOK POST RULES — follow every rule exactly:
+• Tone: Conversational, educational, community-focused — more relaxed than LinkedIn, less visual than Instagram
+• Length: 100–500 words — longer form storytelling works well here
+• Hook: Start with a relatable question or a surprising fact (not a generic "Did you know?")
+• Format: Short paragraphs, use bullet points or numbered lists where helpful
+• Emojis: Sparingly — maximum 3 to 5 total, not at every line
+• Hashtags: 0 to 5 hashtags maximum — Facebook hashtags do not perform well, fewer is better
+• Engagement: End with an open question to drive comments — "Comment below", "Tag a property owner you know", or "Share this with someone who needs it"
+• CTA: Focus on comments and shares, NOT "link in bio"
+• Platform field: MUST be "facebook"`,
+
+  tiktok: `
+TIKTOK POST RULES — follow every rule exactly:
+• Tone: High energy, direct, trend-aware — written to be SPOKEN OUT LOUD to camera
+• Hook: First line must be under 10 words and immediately attention-grabbing — no slow build-ups
+• Length: 100–150 words MAXIMUM — short is critical for TikTok
+• Format: Script style — written as spoken sentences, not formal writing. Short punchy sentences.
+• Emojis: 3 to 6 total, energetic and relevant
+• Hashtags: 5–10 hashtags — MUST include #fyp #foryou #foryoupage plus 3 to 5 niche tags
+• Ending: Close with a strong hook to follow the account or watch again — "Follow for more" or "Part 2 coming"
+• Platform field: MUST be "tiktok"`,
+
+  linkedin: `
+LINKEDIN POST RULES — follow every rule exactly:
+• Tone: Professional, thought leadership, data-driven — authoritative but not dry
+• Opening: Start with a BOLD STATEMENT or surprising insight — NOT a question, NOT an emoji hook
+• Length: 150–400 words
+• Format: Short paragraphs (2–3 sentences max each), clear line breaks between paragraphs
+• Emojis: None, or maximum 1 to 2 professional ones (✅ → is acceptable)
+• Focus: Business value, ROI, professional outcomes, market data and insights
+• Hashtags: 3–5 professional hashtags at the very end — e.g. #PropertyManagement #PassiveIncome #RealEstateInvesting
+• CTA: End with a professional invitation — "What's your experience?", "Connect with us", or "Follow AutoBNBs for more property insights"
+• Platform field: MUST be "linkedin"`,
+
+  buffer: `
+BUFFER POST RULES:
+• Write a versatile post suitable for scheduling across platforms
+• Medium length: 100–200 words
+• Moderate emoji use
+• 5–10 hashtags
+• Platform field: MUST be "buffer"`,
+};
+
+function buildPlatformSpecificPrompt(
+  businessName: string,
+  pillarsText: string,
+  toneDescription: string,
+  postAssignments: Array<{ platform: Platform; pillar: string }>,
+): string {
+  // Collect which platforms are actually needed for rules section
+  const neededPlatforms = [...new Set(postAssignments.map((a) => a.platform))];
+
+  const assignmentList = postAssignments
+    .map(
+      (a, i) =>
+        `Post ${i + 1}: Write for PLATFORM = ${a.platform.toUpperCase()} | Content pillar = ${a.pillar}`,
+    )
+    .join('\n');
+
+  const rulesSection = neededPlatforms
+    .map((p) => PLATFORM_RULES[p])
+    .join('\n\n');
+
+  return `You are generating social media content for ${businessName}, a short-term rental property management company that helps property owners earn passive income through automated Airbnb management. Clients average 34% higher revenue than self-managed properties.
+
+Overall tone of voice: ${toneDescription}
+
+━━━ YOUR TASK ━━━
+Generate exactly ${postAssignments.length} posts. Each post is assigned to a specific platform. You MUST write each post exclusively for its assigned platform using only that platform's rules below.
+
+${assignmentList}
+
+━━━ PLATFORM RULES ━━━
+${rulesSection}
+
+━━━ CONTENT PILLARS TO DRAW FROM ━━━
+${pillarsText}
+Do not repeat the same pillar across posts if you can avoid it.
+
+━━━ REQUIRED JSON FORMAT ━━━
+Return ONLY a valid JSON array. No markdown, no explanation, no code fences.
+
+[
+  {
+    "id": "post-1",
+    "platform": "<exact platform name from the assigned list — lowercase>",
+    "caption": "<full caption written exclusively for that platform following its rules>",
+    "hashtags": ["#tag1", "#tag2"],
+    "imageDescription": "<specific, visual description of the ideal image or video for this post>",
+    "contentPillar": "<the content pillar used>",
+    "approved": false
+  }
+]
+
+CRITICAL: The "platform" field MUST exactly match the platform you were assigned for each post. If you were told to write Post 1 for FACEBOOK, "platform" must be "facebook". Do NOT default everything to instagram.`;
 }
 
 export async function POST(req: NextRequest) {
@@ -22,85 +133,55 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      // Return demo content when no API key is set
       return NextResponse.json({ content: generateDemoContent(platforms, numberOfPosts, tone) });
     }
 
     const client = new Anthropic({ apiKey });
-
-    const platformDescriptions = platforms
-      .map(
-        (p) =>
-          `${PLATFORM_CONFIG[p].label}: ${PLATFORM_CONFIG[p].tone} Max characters: ${PLATFORM_CONFIG[p].maxCaptionLength}. Max hashtags: ${PLATFORM_CONFIG[p].maxHashtags}.`
-      )
-      .join('\n');
-
     const toneDescription = TONE_CONFIG[tone]?.description ?? tone;
     const pillarsText = contentPillars.join(', ');
 
-    const userPrompt = `Generate ${numberOfPosts} unique social media posts for ${businessName}, a short-term rental property management company.
+    // Build explicit platform assignment for each post slot
+    const postAssignments = Array.from({ length: numberOfPosts }, (_, i) => ({
+      platform: platforms[i % platforms.length],
+      pillar: contentPillars[i % contentPillars.length],
+    }));
 
-Business context: ${businessName} helps property owners earn passive income through automated Airbnb management. Clients earn an average of 34% more than self-managed properties.
-
-Content pillars to draw from: ${pillarsText}
-
-Tone of voice: ${tone} — ${toneDescription}
-
-Generate posts optimised for these platforms:
-${platformDescriptions}
-
-For each post, return a JSON object with this exact structure:
-{
-  "id": "unique-id",
-  "platform": "platform-name",
-  "caption": "The full caption ready to post",
-  "hashtags": ["#hashtag1", "#hashtag2"],
-  "imageDescription": "Description of the ideal image for this post",
-  "contentPillar": "the-content-pillar-used",
-  "approved": false
-}
-
-Return a JSON array of ${numberOfPosts} posts. Distribute posts across the requested platforms.
-
-Rules:
-- ALWAYS start the caption with a strong hook that stops the scroll
-- Instagram captions can be longer (up to 300 words), use line breaks, emojis, and a strong CTA
-- LinkedIn captions are professional, insight-driven, data-backed, 150-250 words
-- Facebook captions are conversational, community-focused, 100-200 words
-- TikTok captions are energetic, hook-first, under 150 words, trend-aware
-- Vary the content pillars across posts — don't repeat the same topic
-- Every post must mention or reference ${businessName} naturally
-- Hashtags should be a mix of high-volume (#AirbnbHost) and niche (#AirbnbManagementAustralia)
-- Image descriptions should be specific and visually evocative
-
-Return ONLY the JSON array. No other text.`;
+    const userPrompt = buildPlatformSpecificPrompt(
+      businessName,
+      pillarsText,
+      toneDescription,
+      postAssignments,
+    );
 
     const message = await client.messages.create({
       model: CLAUDE_CONFIG.model,
       max_tokens: CLAUDE_CONFIG.maxTokens,
-      system: CLAUDE_CONFIG.systemPrompt,
+      system: `You are an expert social media content writer who specialises in short-term rental property management. You write platform-native content — your Instagram posts feel genuinely Instagram, your LinkedIn posts feel genuinely LinkedIn, and your TikTok scripts feel genuinely TikTok. You never copy the same content across platforms. You always follow the exact platform rules you are given for each post.`,
       messages: [{ role: 'user', content: userPrompt }],
     });
 
     const responseText =
       message.content[0].type === 'text' ? message.content[0].text : '';
 
-    // Parse the JSON response — handle plain JSON, markdown fences, truncation
     let content: GeneratedContent[] = [];
     try {
-      // Strip all markdown code fences (handles ```json, ```, and trailing ```)
       const stripped = responseText
-        .replace(/^[\s\S]*?```(?:json)?\s*/i, '')  // remove everything up to and including opening fence
-        .replace(/```[\s\S]*$/i, '')                // remove closing fence and anything after
+        .replace(/^[\s\S]*?```(?:json)?\s*/i, '')
+        .replace(/```[\s\S]*$/i, '')
         .trim();
 
-      // Find the JSON array — works whether stripped or raw
       const source = stripped.startsWith('[') ? stripped : responseText;
       const jsonMatch = source.match(/\[[\s\S]*\]/);
       if (!jsonMatch) throw new Error('No JSON array found in response');
 
       content = JSON.parse(jsonMatch[0]);
       if (!Array.isArray(content)) throw new Error('Response is not an array');
+
+      // Enforce correct platform values — if Claude drifted, reassign from our assignment list
+      content = content.map((post, i) => ({
+        ...post,
+        platform: postAssignments[i]?.platform ?? post.platform,
+      }));
     } catch {
       console.error('Failed to parse Claude response:', responseText.slice(0, 500));
       return NextResponse.json(
@@ -122,82 +203,66 @@ Return ONLY the JSON array. No other text.`;
 function generateDemoContent(
   platforms: Platform[],
   count: number,
-  tone: ToneOfVoice
+  tone: ToneOfVoice,
 ): GeneratedContent[] {
-  const demoPosts: Omit<GeneratedContent, 'id'>[] = [
-    {
+  const demos: Record<Platform, Omit<GeneratedContent, 'id'>> = {
+    instagram: {
       platform: 'instagram',
       caption:
-        '🏡 Your property should work as hard as you do — even when you\'re not.\n\nAt AutoBNBs, we\'ve built a system that turns your investment property into a fully automated, passive income machine. Professional guest management. Dynamic pricing. 24/7 support.\n\nOur clients don\'t manage their Airbnbs. We do.\n\nAnd the results speak for themselves — 34% higher revenue on average vs self-managed properties.\n\nReady to stop managing and start earning? Drop \'INFO\' in the comments or tap the link in bio.\n\n🔗 autobnbs.com',
+        '🏡 Your property should earn money while you sleep.\n\nAt AutoBNBs, we turn your investment into a fully automated passive income machine — professional guest management, dynamic pricing, and 24/7 support.\n\nOur clients earn 34% more than self-managed listings on average.\n\nReady to stop managing and start earning? 👇\n\nDM us PASSIVE or tap the link in bio.',
       hashtags: [
         '#PassiveIncome', '#AirbnbHost', '#ShortTermRental', '#PropertyManagement',
         '#AutoBNBs', '#RealEstateInvesting', '#AirbnbTips', '#PropertyOwner',
         '#HostLife', '#STR', '#AirbnbBusiness', '#PassiveIncomeGoals',
+        '#InvestmentProperty', '#AirbnbManagement', '#RentalIncome',
       ],
       imageDescription: 'Luxurious Airbnb living room with floor-to-ceiling windows at golden hour, immaculate styling',
       contentPillar: 'passive-income',
       approved: false,
     },
-    {
+    facebook: {
       platform: 'facebook',
       caption:
-        'Did you know the average self-managed Airbnb leaves $8,000+ per year on the table?\n\nThat\'s the gap between what most property owners earn and what their property COULD be earning with professional management.\n\nAt AutoBNBs, we close that gap for our clients:\n✅ Dynamic pricing updated daily\n✅ Professional listing photography\n✅ 24/7 guest communication\n✅ Maintenance coordination\n✅ Monthly revenue reporting\n\nThe result? Our clients average 94% occupancy during peak season and 4.92/5 guest ratings.\n\nCurious what your property could earn? Comment below and we\'ll do a free revenue estimate for you.',
-      hashtags: [
-        '#AirbnbManagement', '#PropertyInvestment', '#AutoBNBs', '#PassiveIncome',
-        '#ShortTermRental', '#RealEstate',
-      ],
-      imageDescription: 'Professional property manager reviewing analytics dashboard with positive revenue graphs',
+        'The average self-managed Airbnb leaves $8,000+ on the table every single year.\n\nThat gap exists because managing a short-term rental properly is essentially a second job — dynamic pricing, guest communication, cleaning coordination, maintenance, reviews.\n\nAt AutoBNBs, we handle all of that for you.\n\nThe result? Our clients average 94% occupancy during peak season and 4.92/5 guest ratings — without lifting a finger.\n\nIf you own a property and you\'re doing this yourself, we\'d love to show you what\'s possible.\n\nComment below with your location and we\'ll do a free revenue estimate for your property. 👇',
+      hashtags: ['#AirbnbManagement', '#PropertyInvestment', '#AutoBNBs', '#PassiveIncome'],
+      imageDescription: 'Property owner relaxing at home while AutoBNBs dashboard shows positive revenue on laptop',
       contentPillar: 'market-insights',
       approved: false,
     },
-    {
-      platform: 'linkedin',
-      caption:
-        'The short-term rental market grew 18% last year. Here\'s what separates the top performers:\n\nAfter analysing 500+ properties under management at AutoBNBs, three variables consistently predict STR success:\n\n1. Dynamic pricing — Updated daily based on local demand, events, and competition. Static rates cost hosts an average 22% in potential revenue.\n\n2. Response velocity — Properties with sub-1-hour response times see 40% more bookings. Automated messaging systems make this scalable.\n\n3. Review consistency — Properties maintaining 4.8+ ratings command 15-25% premium pricing year-round.\n\nThese aren\'t secrets. They\'re systems. And systems are what AutoBNBs provides for property owners who want results without the operational burden.\n\nWhat\'s your biggest challenge with short-term rental management?',
-      hashtags: [
-        '#PropertyManagement', '#ShortTermRental', '#RealEstateInvesting', '#AutoBNBs',
-        '#PassiveIncome',
-      ],
-      imageDescription: 'Professional business analytics chart showing STR market growth and performance metrics',
-      contentPillar: 'market-insights',
-      approved: false,
-    },
-    {
+    tiktok: {
       platform: 'tiktok',
       caption:
-        'Your Airbnb should earn money while you sleep.\n\nMost hosts earn 34% less than they could. AutoBNBs closes that gap — automatically.\n\nFull property management. Zero daily effort. 🏡',
-      hashtags: ['#AirbnbHost', '#PassiveIncome', '#AutoBNBs'],
-      imageDescription: 'Minimal graphic with property icon and passive income message on clean white background',
+        'POV: Your Airbnb just made money while you slept 😴💸\n\nNo late-night guest calls.\nNo chasing cleaners.\nNo pricing stress.\n\nJust passive income — automatically.\n\nThat\'s what AutoBNBs does for property owners.\n\nWe manage everything. You collect the income.\n\nFollow for more STR tips 👇',
+      hashtags: ['#fyp', '#foryou', '#foryoupage', '#AirbnbHost', '#PassiveIncome', '#STR', '#AutoBNBs', '#RealEstate'],
+      imageDescription: 'Split screen: person sleeping peacefully / Airbnb dashboard showing active bookings and earnings',
       contentPillar: 'passive-income',
       approved: false,
     },
-    {
-      platform: 'instagram',
+    linkedin: {
+      platform: 'linkedin',
       caption:
-        'Meet the property that changed everything for James and Lisa. 🏘️\n\nThey bought a 3-bedroom apartment in Brisbane as an investment. For 18 months, they self-managed — fielding guest calls at midnight, scrambling for cleaners, and still making less than their mortgage payments.\n\nThen they discovered AutoBNBs.\n\nIn 6 months:\n→ Revenue increased by 47%\n→ Guest rating went from 4.2 to 4.9\n→ Zero management time required\n→ Occupancy jumped from 68% to 91%\n\n"We wish we\'d done this from day one." — James & Lisa, Brisbane\n\nYour property deserves this. DM us \'PASSIVE\' to find out how we can transform yours.',
-      hashtags: [
-        '#SuccessStory', '#AirbnbManagement', '#PassiveIncome', '#AutoBNBs',
-        '#PropertyOwner', '#RealEstateSuccess', '#AirbnbHost', '#STRInvesting',
-        '#PropertyInvestment', '#HostLife',
-      ],
-      imageDescription: 'Stunning modern Brisbane apartment interior with river views, perfectly styled for Airbnb',
-      contentPillar: 'success-stories',
+        'Short-term rental management has a systems problem — and most property owners are paying for it.\n\nAfter analysing 500+ properties under management at AutoBNBs, three variables consistently determine STR revenue performance:\n\n1. Dynamic pricing — Updated daily based on local demand and competition. Static rates cost hosts an average of 22% in potential revenue annually.\n\n2. Response velocity — Properties with sub-1-hour guest response times see 40% more bookings. Automated systems make this scalable.\n\n3. Review consistency — Listings maintaining 4.8+ ratings command 15–25% premium pricing year-round.\n\nNone of these are secrets. They\'re systems. And systems are what most self-managing property owners don\'t have time to build.\n\nWhat\'s your biggest operational challenge with short-term rentals?\n\n#PropertyManagement #ShortTermRental #RealEstateInvesting #PassiveIncome',
+      hashtags: ['#PropertyManagement', '#ShortTermRental', '#RealEstateInvesting', '#PassiveIncome'],
+      imageDescription: 'Clean data dashboard showing STR performance metrics with upward trending revenue graph',
+      contentPillar: 'market-insights',
       approved: false,
     },
-  ];
+    buffer: {
+      platform: 'buffer',
+      caption: 'AutoBNBs handles everything your Airbnb needs — so you earn more without lifting a finger.',
+      hashtags: ['#AutoBNBs', '#PassiveIncome', '#AirbnbHost'],
+      imageDescription: 'Modern property with AutoBNBs branding',
+      contentPillar: 'passive-income',
+      approved: false,
+    },
+  };
 
-  const results: GeneratedContent[] = [];
-  const platformCycle = [...platforms];
-
-  for (let i = 0; i < count; i++) {
-    const platform = platformCycle[i % platformCycle.length];
-    const base = demoPosts.find((p) => p.platform === platform) ?? demoPosts[i % demoPosts.length];
-    results.push({
-      ...base,
+  return Array.from({ length: count }, (_, i) => {
+    const platform = platforms[i % platforms.length];
+    return {
+      ...demos[platform],
       id: `gen-${Date.now()}-${i}`,
       platform,
-    });
-  }
-
-  return results;
+    };
+  });
 }
