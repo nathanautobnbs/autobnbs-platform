@@ -151,13 +151,13 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Demo Data Notice */}
-      <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 text-sm text-yellow-800 flex items-center gap-2">
-        <Target size={16} className="text-yellow-600 flex-shrink-0" />
+      {/* Empty State Notice */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800 flex items-center gap-2">
+        <Target size={16} className="text-blue-600 flex-shrink-0" />
         <span>
-          Analytics display demo data to show the full layout. Connect your social platforms in{' '}
+          Connect your social platforms in{' '}
           <a href="/platforms" className="underline font-medium">Platform Settings</a>{' '}
-          to populate with real performance data.
+          to start tracking real performance data. All stats will populate automatically once connected.
         </span>
       </div>
 
@@ -165,105 +165,57 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <OverviewCard
           label="Total Posts Published"
-          value={analyticsData.overview.totalPostsPublished.toString()}
+          value="0"
           icon={BarChart3}
           accent="border-blue-100"
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
-          change={{ value: '+12 vs last period', positive: true }}
         />
         <OverviewCard
           label="Avg Engagement Rate"
-          value={`${analyticsData.overview.avgEngagementRate}%`}
+          value="—"
           icon={TrendingUp}
           accent="border-green-100"
           iconBg="bg-green-50"
           iconColor="text-green-600"
-          change={{ value: '+1.2% this month', positive: true }}
         />
         <OverviewCard
           label="Best Performing Platform"
-          value="Instagram"
+          value="—"
           icon={Star}
           accent="border-purple-100"
           iconBg="bg-purple-50"
           iconColor="text-purple-600"
-          change={{ value: '7.8% avg engagement', positive: true }}
         />
         <OverviewCard
           label="Best Content Type"
-          value={analyticsData.overview.bestContentType}
+          value="—"
           icon={Target}
           accent="border-orange-100"
           iconBg="bg-orange-50"
           iconColor="text-orange-600"
-          change={{ value: '8.9% avg engagement', positive: true }}
         />
       </div>
 
       {/* Charts Grid */}
       <div className="grid lg:grid-cols-2 gap-5">
-        {/* Posting Frequency */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="font-bold text-gray-900 mb-1">Posting Frequency</h2>
-          <p className="text-xs text-gray-400 mb-4">Posts published per day (last {daysMap[dateRange]} days)</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={chartData} barSize={8}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 10, fill: '#9ca3af' }}
-                tickLine={false}
-                axisLine={false}
-                interval={Math.floor(chartData.length / 6)}
-              />
-              <YAxis
-                tick={{ fontSize: 10, fill: '#9ca3af' }}
-                tickLine={false}
-                axisLine={false}
-                width={24}
-              />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: '12px',
-                  border: '1px solid #e5e7eb',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                  fontSize: '12px',
-                }}
-              />
-              <Bar dataKey="posts" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Posts" />
-            </BarChart>
-          </ResponsiveContainer>
+          <p className="text-xs text-gray-400 mb-4">Posts published per day</p>
+          <div className="flex flex-col items-center justify-center h-[220px] text-center">
+            <BarChart3 size={36} className="text-gray-200 mb-3" />
+            <p className="text-sm font-medium text-gray-400">No data yet</p>
+            <p className="text-xs text-gray-400 mt-1">Connect your platforms to start tracking performance</p>
+          </div>
         </div>
-
-        {/* Engagement by Content Type */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="font-bold text-gray-900 mb-1">Engagement by Content Type</h2>
           <p className="text-xs text-gray-400 mb-4">Average engagement rate by content pillar</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={contentTypeData} barSize={10} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: '#9ca3af' }} tickLine={false} axisLine={false} />
-              <YAxis
-                type="category"
-                dataKey="name"
-                tick={{ fontSize: 10, fill: '#9ca3af' }}
-                tickLine={false}
-                axisLine={false}
-                width={90}
-              />
-              <Tooltip
-                contentStyle={{
-                  borderRadius: '12px',
-                  border: '1px solid #e5e7eb',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                  fontSize: '12px',
-                }}
-                formatter={(value: number) => [`${value}%`, 'Engagement']}
-              />
-              <Bar dataKey="engagement" fill="#a855f7" radius={[0, 4, 4, 0]} name="Avg Engagement %" />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="flex flex-col items-center justify-center h-[220px] text-center">
+            <TrendingUp size={36} className="text-gray-200 mb-3" />
+            <p className="text-sm font-medium text-gray-400">No data yet</p>
+            <p className="text-xs text-gray-400 mt-1">Connect your platforms to start tracking performance</p>
+          </div>
         </div>
       </div>
 
@@ -274,9 +226,9 @@ export default function AnalyticsPage() {
           <p className="text-xs text-gray-400 mt-0.5">Performance summary per platform</p>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-          {platformBreakdown.map(({ platform, posts: postCount, avgEngagement, totalReach }) => {
-            const cfg = PLATFORM_CONFIG[platform as Platform];
-            const Icon = PlatformIcon[platform as Platform] ?? (() => null);
+          {(['instagram', 'facebook', 'tiktok', 'linkedin'] as Platform[]).map((platform) => {
+            const cfg = PLATFORM_CONFIG[platform];
+            const Icon = PlatformIcon[platform] ?? (() => null);
             if (!cfg) return null;
             return (
               <div key={platform} className="p-5">
@@ -289,25 +241,19 @@ export default function AnalyticsPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Posts</span>
-                    <span className="font-semibold text-gray-900">{postCount}</span>
+                    <span className="font-semibold text-gray-900">0</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Avg Engagement</span>
-                    <span className="font-semibold text-green-600">{avgEngagement}%</span>
+                    <span className="font-semibold text-gray-400">—</span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Total Reach</span>
-                    <span className="font-semibold text-gray-900">{(totalReach / 1000).toFixed(1)}k</span>
+                    <span className="font-semibold text-gray-900">0</span>
                   </div>
                 </div>
-                {/* Mini engagement bar */}
                 <div className="mt-3">
-                  <div className="h-1.5 bg-gray-100 rounded-full">
-                    <div
-                      className={`h-1.5 rounded-full ${cfg.bgColor}`}
-                      style={{ width: `${Math.min((avgEngagement / 10) * 100, 100)}%` }}
-                    />
-                  </div>
+                  <div className="h-1.5 bg-gray-100 rounded-full" />
                 </div>
               </div>
             );

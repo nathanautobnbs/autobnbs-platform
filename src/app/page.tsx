@@ -205,7 +205,6 @@ export default function DashboardPage() {
           accent="border-blue-100"
           iconBg="bg-blue-50"
           iconColor="text-blue-600"
-          change="2 more than yesterday"
         />
         <StatCard
           label="Published This Week"
@@ -214,7 +213,6 @@ export default function DashboardPage() {
           accent="border-green-100"
           iconBg="bg-green-50"
           iconColor="text-green-600"
-          change="+18% vs last week"
         />
         <StatCard
           label="Platforms Connected"
@@ -226,12 +224,11 @@ export default function DashboardPage() {
         />
         <StatCard
           label="Avg Engagement Rate"
-          value={`${avgEngagement}%`}
+          value={avgEngagement > 0 ? `${avgEngagement}%` : '—'}
           icon={TrendingUp}
           accent="border-yellow-100"
           iconBg="bg-yellow-50"
           iconColor="text-yellow-600"
-          change="+1.2% this month"
         />
       </div>
 
