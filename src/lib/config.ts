@@ -13,7 +13,7 @@ export const APP_CONFIG = {
 
 export const CLAUDE_CONFIG = {
   model: 'claude-sonnet-4-6',
-  maxTokens: 2048,
+  maxTokens: 8192,
   systemPrompt: `You are a professional social media content creator specialising in short-term rental property management for AutoBNBs — a company that helps property owners earn passive income through Airbnb automation and professional property management.
 
 You create compelling, platform-specific social media content that:

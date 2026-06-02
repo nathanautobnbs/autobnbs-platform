@@ -85,14 +85,21 @@ Return ONLY the JSON array. No other text.`;
     const responseText =
       message.content[0].type === 'text' ? message.content[0].text : '';
 
-    // Parse the JSON response — handle plain JSON, markdown code fences, and arrays
+    // Parse the JSON response — handle plain JSON, markdown fences, truncation
     let content: GeneratedContent[] = [];
     try {
-      // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
-      const stripped = responseText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
-      // Extract the JSON array
-      const jsonMatch = stripped.match(/\[[\s\S]*\]/);
-      content = JSON.parse(jsonMatch ? jsonMatch[0] : stripped);
+      // Strip all markdown code fences (handles ```json, ```, and trailing ```)
+      const stripped = responseText
+        .replace(/^[\s\S]*?```(?:json)?\s*/i, '')  // remove everything up to and including opening fence
+        .replace(/```[\s\S]*$/i, '')                // remove closing fence and anything after
+        .trim();
+
+      // Find the JSON array — works whether stripped or raw
+      const source = stripped.startsWith('[') ? stripped : responseText;
+      const jsonMatch = source.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) throw new Error('No JSON array found in response');
+
+      content = JSON.parse(jsonMatch[0]);
       if (!Array.isArray(content)) throw new Error('Response is not an array');
     } catch {
       console.error('Failed to parse Claude response:', responseText.slice(0, 500));
