@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
-  Sparkles, Copy, Check, Edit3, Calendar, Plus,
+  Sparkles, Copy, Check, Edit3, Calendar, Plus, Trash2,
   Instagram, Facebook, Linkedin, Send, Image as ImageIcon,
   RefreshCw, Tag, Download, ToggleLeft, ToggleRight, Smartphone, Square,
   Loader2,
@@ -236,6 +236,7 @@ interface ContentCardProps {
   onSchedule: (c: GeneratedContent) => void;
   onApprove: (c: GeneratedContent) => void;
   onCopyCaption: (text: string) => void;
+  onDelete: (id: string) => void;
   onRegenerateAd: (id: string) => void;
   onAdSizeChange: (id: string, s: AdSize) => void;
   onDownloadAd: (id: string) => void;
@@ -244,7 +245,7 @@ interface ContentCardProps {
 
 function ContentCard({
   content, index, showVisualAd, adState, adSize,
-  onEdit, onSchedule, onApprove, onCopyCaption,
+  onEdit, onSchedule, onApprove, onCopyCaption, onDelete,
   onRegenerateAd, onAdSizeChange, onDownloadAd, copiedId,
 }: ContentCardProps) {
   const colors = getPlatformColors(content.platform);
@@ -328,6 +329,7 @@ function ContentCard({
             >
               {isCopied ? 'Copied!' : 'Copy'}
             </Button>
+            <Button size="sm" variant="outline" onClick={() => onDelete(content.id)} leftIcon={<Trash2 size={12} />} className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300">Delete</Button>
             <Button size="sm" variant="outline" onClick={() => onEdit(content)} leftIcon={<Edit3 size={12} />}>Edit</Button>
             <Button size="sm" variant="outline" onClick={() => onSchedule(content)} leftIcon={<Calendar size={12} />}>Schedule</Button>
             <Button
@@ -763,6 +765,7 @@ export default function ContentGeneratorPage() {
                 onEdit={c => { setEditingContent(c); setEditCaption(c.caption); }}
                 onSchedule={setScheduleModalContent}
                 onApprove={handleApprove}
+                onDelete={id => dispatch({ type: 'SET_GENERATED_CONTENT', payload: generatedContent.filter(c => c.id !== id) })}
                 onCopyCaption={text => handleCopyCaption(text, content.id)}
                 onRegenerateAd={handleRegenerateAd}
                 onAdSizeChange={handleAdSizeChange}
