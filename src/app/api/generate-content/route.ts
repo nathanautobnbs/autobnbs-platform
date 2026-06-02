@@ -75,7 +75,7 @@ function buildPlatformSpecificPrompt(
   postAssignments: Array<{ platform: Platform; pillar: string }>,
 ): string {
   // Collect which platforms are actually needed for rules section
-  const neededPlatforms = [...new Set(postAssignments.map((a) => a.platform))];
+  const neededPlatforms = Array.from(new Set(postAssignments.map((a) => a.platform)));
 
   const assignmentList = postAssignments
     .map(
