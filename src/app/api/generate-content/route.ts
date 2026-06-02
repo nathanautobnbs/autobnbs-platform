@@ -74,13 +74,12 @@ function buildPlatformSpecificPrompt(
   toneDescription: string,
   postAssignments: Array<{ platform: Platform; pillar: string }>,
 ): string {
-  // Collect which platforms are actually needed for rules section
   const neededPlatforms = Array.from(new Set(postAssignments.map((a) => a.platform)));
 
   const assignmentList = postAssignments
     .map(
       (a, i) =>
-        `Post ${i + 1}: Write for PLATFORM = ${a.platform.toUpperCase()} | Content pillar = ${a.pillar}`,
+        `Post ${i + 1}: PLATFORM=${a.platform.toUpperCase()} | pillar=${a.pillar}`,
     )
     .join('\n');
 
@@ -88,38 +87,57 @@ function buildPlatformSpecificPrompt(
     .map((p) => PLATFORM_RULES[p])
     .join('\n\n');
 
-  return `You are generating social media content for ${businessName}, a short-term rental property management company that helps property owners earn passive income through automated Airbnb management. Clients average 34% higher revenue than self-managed properties.
+  return `Generate exactly ${postAssignments.length} social media posts for ${businessName}, a short-term rental property management company (clients earn 34% more than self-managed properties via automated Airbnb management).
 
-Overall tone of voice: ${toneDescription}
+Overall tone: ${toneDescription}
 
-━━━ YOUR TASK ━━━
-Generate exactly ${postAssignments.length} posts. Each post is assigned to a specific platform. You MUST write each post exclusively for its assigned platform using only that platform's rules below.
-
+PLATFORM ASSIGNMENTS — write each post ONLY for its assigned platform:
 ${assignmentList}
 
-━━━ PLATFORM RULES ━━━
+PLATFORM RULES:
 ${rulesSection}
 
-━━━ CONTENT PILLARS TO DRAW FROM ━━━
-${pillarsText}
-Do not repeat the same pillar across posts if you can avoid it.
+CONTENT PILLARS: ${pillarsText}
 
-━━━ REQUIRED JSON FORMAT ━━━
-Return ONLY a valid JSON array. No markdown, no explanation, no code fences.
+OUTPUT RULES:
+- Your response is a raw JSON array that begins with the character [ and ends with ]
+- No preamble, no explanation, no markdown fences — pure JSON only
+- Each element has exactly these fields:
+  id (string), platform (lowercase string matching assignment), caption (string),
+  hashtags (array of strings), imageDescription (string), contentPillar (string), approved (false)
+- The "platform" field MUST match the assigned platform exactly (e.g. "facebook" not "instagram")`;
+}
 
-[
-  {
-    "id": "post-1",
-    "platform": "<exact platform name from the assigned list — lowercase>",
-    "caption": "<full caption written exclusively for that platform following its rules>",
-    "hashtags": ["#tag1", "#tag2"],
-    "imageDescription": "<specific, visual description of the ideal image or video for this post>",
-    "contentPillar": "<the content pillar used>",
-    "approved": false
+// Multi-strategy JSON parser: handles clean arrays, truncated arrays, and code fences
+function parseJsonArray(raw: string): GeneratedContent[] {
+  // Strategy 1: direct parse (fastest, covers most cases)
+  try {
+    const r = JSON.parse(raw);
+    if (Array.isArray(r)) return r;
+  } catch { /* fall through */ }
+
+  // Strategy 2: strip any trailing non-JSON text after last closing brace
+  const lastBrace = raw.lastIndexOf('}');
+  if (lastBrace > 0) {
+    try {
+      const closed = raw.substring(0, lastBrace + 1) + ']';
+      const r = JSON.parse(closed);
+      if (Array.isArray(r)) return r;
+    } catch { /* fall through */ }
   }
-]
 
-CRITICAL: The "platform" field MUST exactly match the platform you were assigned for each post. If you were told to write Post 1 for FACEBOOK, "platform" must be "facebook". Do NOT default everything to instagram.`;
+  // Strategy 3: strip markdown fences then extract [...]
+  const stripped = raw
+    .replace(/^[\s\S]*?```(?:json)?\s*/i, '')
+    .replace(/```[\s\S]*$/i, '')
+    .trim();
+  const match = (stripped.startsWith('[') ? stripped : raw).match(/\[[\s\S]*\]/);
+  if (match) {
+    const r = JSON.parse(match[0]);
+    if (Array.isArray(r)) return r;
+  }
+
+  throw new Error('No parseable JSON array found');
 }
 
 export async function POST(req: NextRequest) {
@@ -156,34 +174,25 @@ export async function POST(req: NextRequest) {
     const message = await client.messages.create({
       model: CLAUDE_CONFIG.model,
       max_tokens: CLAUDE_CONFIG.maxTokens,
-      system: `You are an expert social media content writer who specialises in short-term rental property management. You write platform-native content — your Instagram posts feel genuinely Instagram, your LinkedIn posts feel genuinely LinkedIn, and your TikTok scripts feel genuinely TikTok. You never copy the same content across platforms. You always follow the exact platform rules you are given for each post.`,
+      system: `You are an expert social media content writer specialising in short-term rental property management. You write platform-native content tailored precisely to each platform's style. IMPORTANT: You respond with a raw JSON array only — your entire response must be valid JSON starting with [ and ending with ]. Never add any text, explanation, or markdown before or after the JSON.`,
       messages: [{ role: 'user', content: userPrompt }],
     });
 
-    const responseText =
-      message.content[0].type === 'text' ? message.content[0].text : '';
+    const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
 
     let content: GeneratedContent[] = [];
     try {
-      const stripped = responseText
-        .replace(/^[\s\S]*?```(?:json)?\s*/i, '')
-        .replace(/```[\s\S]*$/i, '')
-        .trim();
+      content = parseJsonArray(responseText);
+      if (!Array.isArray(content) || content.length === 0)
+        throw new Error('Empty or invalid array');
 
-      const source = stripped.startsWith('[') ? stripped : responseText;
-      const jsonMatch = source.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('No JSON array found in response');
-
-      content = JSON.parse(jsonMatch[0]);
-      if (!Array.isArray(content)) throw new Error('Response is not an array');
-
-      // Enforce correct platform values — if Claude drifted, reassign from our assignment list
+      // Enforce correct platform values regardless of Claude drift
       content = content.map((post, i) => ({
         ...post,
         platform: postAssignments[i]?.platform ?? post.platform,
       }));
     } catch {
-      console.error('Failed to parse Claude response:', responseText.slice(0, 500));
+      console.error('Failed to parse Claude response. Raw text (first 1000 chars):', responseText.slice(0, 1000));
       return NextResponse.json(
         { error: 'Failed to parse generated content' },
         { status: 500 }
