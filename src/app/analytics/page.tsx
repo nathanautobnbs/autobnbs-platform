@@ -2,10 +2,6 @@
 
 import { useState, useMemo } from 'react';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend,
-} from 'recharts';
-import {
   BarChart3, TrendingUp, Star, Target, Filter, Instagram,
   Facebook, Linkedin, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
@@ -13,7 +9,6 @@ import { format, parseISO, subDays, isAfter } from 'date-fns';
 import { useAppState } from '@/lib/store';
 import { Platform } from '@/types';
 import Badge from '@/components/ui/Badge';
-import analyticsData from '@/data/analytics.json';
 import { getPlatformColors, calculateEngagementRate } from '@/lib/utils';
 import { PLATFORM_CONFIG } from '@/lib/config';
 
@@ -93,30 +88,6 @@ export default function AnalyticsPage() {
     () => filteredPosts.filter((p) => p.status === 'published'),
     [filteredPosts]
   );
-
-  // Merge demo analytics data with real posts data
-  const chartData = useMemo(() => {
-    const days = daysMap[dateRange];
-    return analyticsData.postsByDay.slice(-days).map((d) => ({
-      date: format(parseISO(d.date), 'MMM d'),
-      posts: d.count,
-    }));
-  }, [dateRange]);
-
-  const platformBreakdown = useMemo(() => {
-    return Object.entries(analyticsData.byPlatform).map(([platform, data]) => ({
-      platform: platform as Platform,
-      ...data,
-    }));
-  }, []);
-
-  const contentTypeData = useMemo(() => {
-    return Object.entries(analyticsData.byContentType).map(([type, data]) => ({
-      name: type.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-      posts: data.posts,
-      engagement: data.avgEngagement,
-    }));
-  }, []);
 
   const postsWithEngagement = publishedPosts.filter((p) => p.engagement);
 
